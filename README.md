@@ -63,7 +63,7 @@ Type     | Recommended Usage              |
 
 Contributions are always welcome!
 
-See [Contributing](https://github.com/Vinyzu/DISLOCK/blob/main/contributing.md) for ways to get started.
+See [Contributing](https://github.com/Vinyzu/DiscordGenerator/blob/main/contributing.md) for ways to get started.
 
 
 ## To the Skids
