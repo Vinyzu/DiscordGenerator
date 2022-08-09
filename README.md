@@ -22,6 +22,7 @@ The AI of this bot is not mine and i dont take any credits for it.
 
 It was created by QIN2DIM and can be found [here](https://github.com/QIN2DIM/hcaptcha-challenger).
 If you want to update the AI because im late, you will have to grab the files from given repository.
+
 `You maight want to regulary update objects.yaml by copy and pasting https://github.com/QIN2DIM/hcaptcha-challenger/blob/main/src/objects.yaml`
 
 However, i edited out some code/files, to make DISLOCK lightweighter and to use less imports.
@@ -92,7 +93,9 @@ Hello, skid. I know its in your nature to laboriously copy and paste this projec
 ## Thanks to
 
 [QIN2DIM](https://github.com/QIN2DIM/) (For his great AI work.)
+
 [MaxAndolini](https://github.com/MaxAndolini) (For shared knowledge of hCaptcha bypassing)
+
 [Dönerbäcker](https://github.com/DoenerBaecker) (For Proxies)
 
 
