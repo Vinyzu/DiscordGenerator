@@ -226,7 +226,7 @@ class Generator:
                       "height": self.faker.height},
             proxy=self.browser_proxy if self.proxy else None,
             http_credentials={
-                "username": self.split_proxy[2], "password": self.split_proxy[3]} if self.proxy else None
+                "username": self.split_proxy[2], "password": self.split_proxy[3]} if len(self.split_proxy) == 4 else None
         )
         # Grant Permissions to Discord to use Geolocation
         await browser.grant_permissions(["geolocation"], origin="https://discord.com")
