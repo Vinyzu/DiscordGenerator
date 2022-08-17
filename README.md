@@ -23,6 +23,11 @@ https://streamable.com/w9l2fz
 
 ## Proxies
 
+You will have to use HQ Proxies/IPs to get Unlocked Tokens.
+If you really want to generate proxies, you maight have to spend fairly big amounts of money, to get undetected/unflagged IPs.
+If you just want to test the Generator, you can also just restart your InternetRouter (if you have a rotating IP) and Discord wont notice.
+
+(Btw your Proxy AD can stand here, DM me for offers ;d ;:D)
 
 ## Artificial Intelligence
 
@@ -37,6 +42,7 @@ However, i edited out some code/files, to make DISLOCK lightweighter and to use 
 
 Also, i coded a MouseMovement Generator, to get more realistic MotionData. It uses Interpolation between CaptchaImage-Coordinates to do so.
 
+My Playwright hCaptchaSolver can be easily plugged by replicating [check_captcha()][https://github.com/Vinyzu/DiscordGenerator/blob/main/main.py#L491] in your project.
 
 ## Installation
 
