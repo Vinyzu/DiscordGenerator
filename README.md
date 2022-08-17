@@ -9,9 +9,17 @@ You will have to use HQ Proxies/IPs to get unlocked tokens.
 
 ## Features
 
-- TokenGenerator on discord.com/register
-- TokenGenerator on discord.com
+- TokenGenerator on discord.com [Almost always Unlocked]
+- TokenGenerator on discord.com/register [Mostly Unlocked]
 - Captcha Tester on hcaptcha.com
+
+## Demo Videos
+
+### Unclaimed Generator
+https://streamable.com/4wvhdw
+
+### Normal Generator
+https://streamable.com/w9l2fz
 
 ## Proxies
 
