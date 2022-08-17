@@ -5,15 +5,18 @@ import os
 import random
 import re
 import time
+import tempfile
 
 # Pip Install Packages
 import numpy as np
 import scipy.interpolate
 import playwright_stealth
-import requests
+import httpx
 from playwright.async_api import async_playwright
 from random_user_agent.user_agent import UserAgent
 from random_user_agent.params import SoftwareName, OperatingSystem
+import discum
+from TempMail import TempMail
 
 # Imports from Files
 from hcaptcha_challenger import (DIR_CHALLENGE, DIR_MODEL, PATH_OBJECTS_YAML,
@@ -21,106 +24,92 @@ from hcaptcha_challenger import (DIR_CHALLENGE, DIR_MODEL, PATH_OBJECTS_YAML,
 
 
 class Faker():
-    def __init__(self):
+    def __init__(self, client):
+        self.client = client
         return
 
-    class Person():
-        def __init__(selff, gender="random"):
-            url = f"https://api.namefake.com/english-united-states/{gender}"
-            r = requests.get(url)
-            data = r.json()
-            selff.name = data.get("name")
-            selff.maiden_name = data.get("maiden_name")
-            selff.birth_date = data.get("birth_data")
-            selff.birth_year = selff.birth_date.split("-")[0]
-            # selff.birth_month = selff.birth_date.split("-")[1]
-            # selff.birth_day = selff.birth_date.split("-")[2]
-            selff.birth_month = str(random.randint(1, 12))
-            selff.birth_day = str(random.randint(1, 12))
-            selff.email_name = data.get("email_u")
-            selff.email_domain = data.get("email_d")
-            selff.email = f"{selff.email_name}@{selff.email_domain}"
-            selff.username = data.get("username")
-            selff.password = data.get("password")
-            selff.domain = data.get("domain")
-            selff.company = data.get("company")
-            selff.height = data.get("height")
-            selff.weight = data.get("weight")
-            selff.eye = data.get("eye")
-            selff.hair = data.get("hair")
-            selff.sport = data.get("sport")
+    async def person(self, gender="random"):
+        url = f"https://api.namefake.com/english-united-states/{gender}"
+        r = await self.client.get(url)
+        data = r.json()
+        self.name = data.get("name")
+        self.maiden_name = data.get("maiden_name")
+        self.birth_date = data.get("birth_data")
+        self.birth_year = self.birth_date.split("-")[0]
+        # self.birth_month = self.birth_date.split("-")[1]
+        # self.birth_day = self.birth_date.split("-")[2]
+        self.birth_month = str(random.randint(1, 12))
+        self.birth_day = str(random.randint(1, 12))
+        self.email_name = data.get("email_u")
+        self.email_domain = data.get("email_d")
+        self.email = f"{self.email_name}@{self.email_domain}"
+        self.username = data.get("username")
+        self.password = data.get("password")
+        self.domain = data.get("domain")
+        self.company = data.get("company")
+        self.pheight = data.get("height")
+        self.pweight = data.get("weight")
+        self.eye = data.get("eye")
+        self.hair = data.get("hair")
+        self.sport = data.get("sport")
 
-        def __str__(selff):
-            return str(selff.__dict__)
+    async def geolocation(self, country=""):
+        url = f"https://api.3geonames.org/randomland.{country}.json"
+        r = await self.client.get(url)
+        data = r.json()["nearest"]
+        self.latitude = data.get("latt")
+        self.longitude = data.get("longt")
+        self.city = data.get("city")
+        self.country = data.get("prov")
+        self.state = data.get("state")
+        self.region = data.get("region")
+        self.elevation = data.get("elevation")
+        self.timezone = data.get("timezone")
 
-    class Geolocation():
-        def __init__(selff, country=""):
-            url = f"https://api.3geonames.org/randomland.{country}.json"
-            r = requests.get(url)
-            data = r.json()["nearest"]
-            selff.latitude = data.get("latt")
-            selff.longitude = data.get("longt")
-            selff.city = data.get("city")
-            selff.country = data.get("prov")
-            selff.state = data.get("state")
-            selff.region = data.get("region")
-            selff.elevation = data.get("elevation")
-            selff.timezone = data.get("timezone")
-
-        def __str__(selff):
-            return str(selff.__dict__)
-
-    class Computer():
-        def __init__(selff):
-            try:
-                # Sometimes the API is offline
-                while True:
-                    url = "http://fingerprints.bablosoft.com/preview?rand=0.1&tags=Firefox,Desktop,Microsoft%20Windows"
-                    r = requests.get(url)
-                    data = r.json()
-                    selff.useragent = data.get("ua")
-                    selff.vendor = data.get("vendor")
-                    selff.renderer = data.get("renderer")
-                    selff.width = data.get("width")
-                    selff.height = data.get("height")
-                    selff.avail_width = data.get("availWidth")
-                    selff.avail_height = data.get("availHeight")
-                    # If the Window is too small for the captcha
-                    if selff.height > 810 and selff.avail_height > 810:
-                        return
-            except Exception as e:
-                # If Bablosoft Website is offline
-                software_names = [SoftwareName.FIREFOX.value]
-                operating_systems = [OperatingSystem.WINDOWS.value]
-                user_agent_rotator = UserAgent(
-                    software_names=software_names, operating_systems=operating_systems, limit=1)
-                selff.useragent = user_agent_rotator.get_random_user_agent()
-                selff.vendor = "Google Inc."
-                selff.renderer = "Google Inc. (AMD)"
-                selff.width = 1280
-                selff.height = 720
-                selff.avail_width = 1280
-                selff.avail_height = 720
-
-        def __str__(selff):
-            return str(selff.__dict__)
+    async def computer(self):
+        try:
+            # Sometimes the API is offline
+            while True:
+                url = "http://fingerprints.bablosoft.com/preview?rand=0.1&tags=Firefox,Desktop,Microsoft%20Windows"
+                r = await self.client.get(url, timeout=5.0)
+                data = r.json()
+                self.useragent = data.get("ua")
+                self.vendor = data.get("vendor")
+                self.renderer = data.get("renderer")
+                self.width = data.get("width")
+                self.height = data.get("height")
+                self.avail_width = data.get("availWidth")
+                self.avail_height = data.get("availHeight")
+                # If the Window is too small for the captcha
+                if self.height > 810 and self.avail_height > 810:
+                    return
+        except Exception as e:
+            # If Bablosoft Website is offline
+            software_names = [SoftwareName.FIREFOX.value]
+            operating_systems = [OperatingSystem.WINDOWS.value]
+            user_agent_rotator = UserAgent(
+                software_names=software_names, operating_systems=operating_systems, limit=1)
+            self.useragent = user_agent_rotator.get_random_user_agent()
+            self.vendor = "Google Inc."
+            self.renderer = "Google Inc. (AMD)"
+            self.width = 1280
+            self.height = 720
+            self.avail_width = 1280
+            self.avail_height = 720
 
     # Shit Method To Get Locale of Country code
-    class Locale():
-        def __init__(selff, country_code="US"):
-            url = f"http://restcountries.com/v3.1/alpha/{country_code}"
-            r = requests.get(url)
-            data = r.json()[0]
-            selff.languages = data.get("languages")
-            selff.language_code = list(selff.languages.keys())[0][:2]
-            selff.locale = f"{selff.language_code.lower()}-{country_code.upper()}"
-
-        def __str__(selff):
-            return str(selff.__dict__)
+    async def locale(self, country_code="US"):
+        url = f"https://restcountries.com/v3.1/alpha/{country_code}"
+        r = await self.client.get(url)
+        data = r.json()[0]
+        self.languages = data.get("languages")
+        self.language_code = list(self.languages.keys())[0][:2]
+        self.locale = f"{self.language_code.lower()}-{country_code.upper()}"
 
 
 class Proxy():
-    def __init__(self):
+    def __init__(self, client):
+        self.client = client
         return
 
     def Split(self, proxy):
@@ -134,10 +123,10 @@ class Proxy():
 
     # OldCheck (Rate Limitation)
     class OldCheck():
-        def __init__(selff, proxy):
+        def __init__(selff, client, proxy):
             proxies = {"http": f"http://{proxy}",
                        "https": f"http://{proxy}"} if proxy else {}
-            r = requests.get("http://ip-api.com/json/", proxies=proxies)
+            r = httpx.get("http://ip-api.com/json/", proxies=proxies)
             data = r.json()
             selff.country = data.get("country")
             selff.country_code = data.get("countryCode")
@@ -153,90 +142,91 @@ class Proxy():
         def __str__(selff):
             return str(selff.__dict__)
 
-    class Check():
-        def __init__(selff, proxy):
-            proxies = {"http": f"http://{proxy}",
-                       "https": f"http://{proxy}"} if proxy else {}
-            selff.ip = requests.get(
-                'https://api.myip.com', proxies=proxies).json().get("ip")
-            r = requests.get(f"https://tools.keycdn.com/geo.json?host={selff.ip}", headers={
-                             "User-Agent": "keycdn-tools:https://google.com"})
-            try:
-                data = r.json()["data"]["geo"]
-                selff.country = data.get("country_name")
-                selff.country_code = data.get("country_code")
-                selff.region = data.get("region_name")
-                selff.city = data.get("city")
-                selff.zip = data.get("postal_code")
-                selff.latitude = data.get("latitude")
-                selff.longitude = data.get("longitude")
-                selff.timezone = data.get("timezone")
-            except:
-                print(r.text)
-                return False
-
-        def __str__(selff):
-            return str(selff.__dict__)
+    async def check(self, proxy):
+        ip_request = await self.client.get('https://ifconfig.me/ip')
+        self.ip = ip_request.text
+        r = await self.client.get(f"http://ip-api.com/json/{self.ip}")
+        data = r.json()
+        self.country = data.get("country")
+        self.country_code = data.get("countryCode")
+        self.region = data.get("regionName")
+        self.city = data.get("city")
+        self.zip = data.get("zip")
+        self.latitude = data.get("lat")
+        self.longitude = data.get("lon")
+        self.timezone = data.get("timezone")
 
 
 class Generator:
-    async def initialize(self, proxy, mode=None, output_file="output.txt"):
+    async def initialize(self, proxy, mode=None, output_file="output.txt", email=True, humanize=True):
         # Initializing the Thread
-        # threading.Thread.__init__(self)
         self.last_x, self.last_y = 0, 0
-        self.proxy, self.mode, self.output_file = proxy, mode, output_file
+        self.proxy, self.mode, self.output_file, self.email_verification, self.humanize = proxy, mode, output_file, email, humanize
         # SettingUp Logger
         logging.basicConfig(
             format='\033[34m[%(levelname)s] - \033[94mLine %(lineno)s  - \033[36m%(funcName)s() - \033[96m%(message)s\033[0m')
         self.logger = logging.getLogger('logger')
         self.logger.setLevel(logging.DEBUG)
         # Initializing Faker, ComputerInfo, PersonInfo and ProxyInfo
-        self.faker = Faker()
-        self.computer, self.person, self.proxy_info = self.faker.Computer(
-        ), self.faker.Person(), Proxy().Check(self.proxy)
-        if not self.proxy_info:
+        httpx_proxy = {
+            "http://": f"http://{self.proxy}",
+        } if self.proxy else None
+        self.httpx = httpx.AsyncClient(proxies=httpx_proxy, verify=False)
+
+        self.faker, self.prox = Faker(self.httpx), Proxy(self.httpx)
+
+        await self.prox.check(self.proxy)
+        if not self.prox.country:
             self.logger.error("Couldnt load the Proxy info")
             return
+
+        await self.faker.computer()
+        await self.faker.person()
+        await self.faker.locale(self.prox.country_code)
+
         # Initializing LocaleInfo and Browser
-        self.locale = self.faker.Locale(self.proxy_info.country_code)
         await self.initialize_browser()
+        self.logger.info("Spawned Browser successfully")
+
         if mode == 1:
-            await self.generate_token()
-        elif mode == 2:
             await self.generate_unclaimed()
+        elif mode == 2:
+            await self.generate_token()
         elif mode == 3:
             await self.check_captcha()
-
         return
 
     async def initialize_browser(self):
         # Browser Proxy Formatter
         if self.proxy:
-            self.split_proxy = Proxy().Split(self.proxy)
+            self.split_proxy = self.prox.Split(self.proxy)
             if len(self.split_proxy) == 4:
                 self.browser_proxy = {
-                    "server": f"{self.split_proxy[0]}:" + self.split_proxy[1], "username": self.split_proxy[2], "password": self.split_proxy[3]}
+                    "server": f"http://{self.split_proxy[0]}:" + self.split_proxy[1], "username": self.split_proxy[2], "password": self.split_proxy[3]}
             else:
                 self.browser_proxy = {
-                    "server": f"{self.split_proxy[0]}:" + self.split_proxy[1]}
+                    "server": f"http://{self.split_proxy[0]}:" + self.split_proxy[1]}
         else:
             self.browser_proxy = {}
         # Starting Playwright
-        playwright = await async_playwright().start()
+        self.playwright = await async_playwright().start()
         # Launching Firefox with Human Emulation
-        main_browser = await playwright.firefox.launch(devtools=True, headless=False, proxy=self.browser_proxy if self.proxy else None)
+        main_browser = await self.playwright.firefox.launch(devtools=True, headless=False, proxy=self.browser_proxy if self.proxy else None)
         # Context for more options
         browser = await main_browser.new_context(
-            locale="en-US",  # self.locale.locale
-            geolocation={'longitude': self.proxy_info.longitude,
-                         'latitude': self.proxy_info.latitude, "accuracy": 0.7},
-            timezone_id=self.proxy_info.timezone,
+            locale="en-US",  # self.faker.locale
+            geolocation={'longitude': self.prox.longitude,
+                         'latitude': self.prox.latitude, "accuracy": 0.7},
+            timezone_id=self.prox.timezone,
             permissions=['geolocation'],
-            screen={"width": self.computer.avail_width,
-                    "height": self.computer.avail_height},
-            user_agent=self.computer.useragent,
-            viewport={"width": self.computer.width,
-                      "height": self.computer.height},
+            screen={"width": self.faker.avail_width,
+                    "height": self.faker.avail_height},
+            user_agent=self.faker.useragent,
+            viewport={"width": self.faker.width,
+                      "height": self.faker.height},
+            proxy=self.browser_proxy if self.proxy else None,
+            http_credentials={
+                "username": self.split_proxy[2], "password": self.split_proxy[3]} if self.proxy else None
         )
         # Grant Permissions to Discord to use Geolocation
         await browser.grant_permissions(["geolocation"], origin="https://discord.com")
@@ -246,11 +236,29 @@ class Generator:
         # Stealthen the page with custom Stealth Config
         config = playwright_stealth.StealthConfig()
         config.navigator_languages, config.permissions, config.navigator_platform, config.navigator_vendor, config.outerdimensions = False, False, False, False, False
-        config.vendor, config.renderer, config.nav_user_agent, config.nav_platform = self.computer.vendor, self.computer.renderer, self.computer.useragent, "Win32"
-        config.languages = ('en-US', 'en', self.locale.locale,
-                            self.locale.language_code)
+        config.vendor, config.renderer, config.nav_user_agent, config.nav_platform = self.faker.vendor, self.faker.renderer, self.faker.useragent, "Win32"
+        config.languages = ('en-US', 'en', self.faker.locale,
+                            self.faker.language_code)
         await playwright_stealth.stealth_async(page, config)
         self.browser, self.page = browser, page
+
+    async def close(self):
+        try:
+            await self.page.close()
+        except:
+            pass
+        try:
+            await self.browser.close()
+        except:
+            pass
+        try:
+            await self.playwright.stop()
+        except:
+            pass
+        try:
+            await self.httpx.aclose()
+        except:
+            pass
 
     async def type_humanly(self, locator, text):
         # Get the Element by Selector and click it
@@ -269,12 +277,12 @@ class Generator:
         await self.page.mouse.click(x, y, delay=random.randint(40, 100))
         await self.page.wait_for_timeout(random.randint(4, 8)*100)
 
-    async def click_humanly(self, element="", locator=""):
+    async def click_humanly(self, element="", locator="", timeout=30000):
         # Getting Element by Selector if Element isnt passed
         if not element:
             element = self.page.locator(locator)
         # Get a random coordinate inside the element
-        coordinates = await element.bounding_box()
+        coordinates = await element.bounding_box(timeout=timeout)
         x, y = coordinates["x"] + \
             random.randint(10, 20), coordinates["y"] + random.randint(10, 20)
         # Click the Coordinates and return them
@@ -336,7 +344,24 @@ class Generator:
 
         return x_new, y_new
 
+    async def log_captcha(self):
+        async def check_json(route, request):
+            await route.continue_()
+            try:
+                response = await request.response()
+                await response.finished()
+                json = await response.json()
+                if json.get("generated_pass_UUID"):
+                    self.captcha_token = json.get("generated_pass_UUID")
+            except Exception:
+                pass
+
+        await self.page.route("https://hcaptcha.com/checkcaptcha/**", check_json)
+
     async def captcha_solver(self):
+        # Setup CaptchaToken Logger
+        self.captcha_token = None
+        await self.log_captcha()
         # Second Frame is Captcha Frame (With Captcha Images)
         # captcha_frame = self.page.frames[1]
         try:
@@ -354,10 +379,12 @@ class Generator:
             question = await question_locator.text_content()
         except Exception as e:
             self.logger.error("Captcha Question didnt load")
+            await self.close()
             return False
         self.label = re.split(
             r"containing a", question)[-1][1:].strip() if "containing" in question else question
         self.label = self.label.replace(".", "")
+        self.logger.info(f"Got Captcha QuestionLabel: {self.label}")
         # Initializing ArmorCaptcha
         self.challenger = ArmorCaptcha(dir_workspace=DIR_CHALLENGE, dir_model=DIR_MODEL, lang='en', debug=True,
                                        path_objects_yaml=PATH_OBJECTS_YAML, onnx_prefix="yolov5s6")
@@ -369,14 +396,19 @@ class Generator:
         # Getting first 9 of the logged Images (First nine are the CaptchaImages)
         for image_url in self.images[:9]:
             # Getting Content of Image
-            data = requests.get(image_url).content
+            data = httpx.get(image_url).content
             # Getting Result from AI and appending it to list
             try:
                 result = self.model.solution(
                     img_stream=data, label=self.challenger.label_alias[self.label])
             except KeyError:
                 self.logger.error(f"AI doesnt support {self.label} yet!")
-                return False
+                self.images = []
+                await self.click_humanly(self.checkbox, "")
+                await self.page.wait_for_timeout(2000)
+                await self.click_humanly(self.checkbox, "")
+                await self.captcha_solver()
+                return
             self.results.append(result)
         await self.page.wait_for_timeout(1000)
         # If Results are Invalid Reload Captcha and Recurse
@@ -454,17 +486,15 @@ class Generator:
             "//div[@class='button-submit button']").first
         await self.click_humanly(submit_button, "")
         # Checking if Captcha was Bypassed
-        for i in range(100):
-            captcha_locator = self.page.locator(
-                '[title *= "hCaptcha security challenge"]')
-            captcha_token = await captcha_locator.get_attribute("data-hcaptcha-response")
-            if captcha_token:
-                censored_token = f"{captcha_token.split('.')[0]}.{captcha_token.split('.')[1][:5]}*****"
+        for _ in range(100):
+            if self.captcha_token:
+                censored_token = f"{self.captcha_token.split('.')[0]}.{self.captcha_token.split('.')[1][:10]}*****"
                 self.logger.info(
                     f"Bypassed Captcha Successfully: {censored_token}")
                 return True
             else:
                 await self.page.wait_for_timeout(100)
+
         # If Captcha Token wasnt fetched redo Captcha
         self.logger.warning(
             "Captcha Solution was Incorrect or another is needed")
@@ -474,14 +504,7 @@ class Generator:
         await self.click_humanly(self.checkbox, "")
         await self.captcha_solver()
 
-    async def get_token(self):
-        # js = "(webpackChunkdiscord_app.push([[''],{},e=>{m=[];for(let c in e.c)m.push(e.c[c])}]),m).find(m=>m?.exports?.default?.getToken!==void 0).exports.default.getToken()"
-        js1 = "var iframe = document.createElement('iframe');iframe.style.display = 'none';document.body.prepend(iframe);window.localStorage = iframe.contentWindow.localStorage;"
-        await self.page.evaluate(js1)
-        token_evaluated = await self.page.evaluate("window.localStorage.token")
-        self.token = str(token_evaluated).replace('"', "")
-        print(self.token)
-
+    # Main Functions
     async def check_captcha(self):
         try:
             await self.page.goto("https://democaptcha.com/demo-form-eng/hcaptcha.html")
@@ -500,16 +523,15 @@ class Generator:
         try:
             self.checkbox = self.page.frame_locator(
                 '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
+            await self.checkbox.scroll_into_view_if_needed(timeout=5000)
         except Exception as e:
             self.logger.error("Captcha didn´t load")
             return False
-        await self.checkbox.scroll_into_view_if_needed()
         await self.click_humanly(self.checkbox, "")
         await self.page.wait_for_timeout(2000)
         captcha = await self.captcha_solver()
 
-        await self.page.close()
-        await self.browser.close()
+        await self.close()
 
     async def generate_unclaimed(self):
         # Going on Discord Register Site
@@ -517,14 +539,18 @@ class Generator:
             await self.page.goto("https://discord.com/")
         except:
             self.logger.error("Site didn´t load")
+            await self.close()
             return False
+        # Setting Up TokenLog
+        await self.log_token()
+        self.token = None
         # Click Open InBrowser Button
         await self.click_humanly("", '[class *= "gtm-click-class-open-button"]')
         # Typing Username
-        await self.type_humanly('[class *= "username"]', self.person.username)
+        await self.type_humanly('[class *= "username"]', self.faker.username)
         # Clicking Tos and Submit Button
         try:
-            await self.click_humanly("", "[class *='termsCheckbox']")
+            await self.click_humanly("", "[class *='termsCheckbox']", timeout=5000)
         except Exception as e:
             self.logger.debug("No TOS Checkbox was detected")
             pass
@@ -541,36 +567,58 @@ class Generator:
         try:
             self.checkbox = self.page.frame_locator(
                 '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
+            await self.checkbox.scroll_into_view_if_needed(timeout=5000)
         except:
             self.logger.error("Captcha didn´t load")
+            await self.close()
             return False
-        await self.checkbox.scroll_into_view_if_needed()
         await self.click_humanly(self.checkbox, "")
         await self.page.wait_for_timeout(2000)
         captcha = await self.captcha_solver()
 
-        while True:
-            try:
-                await self.get_token()
-                break
-            except Exception as e:
-                await self.page.wait_for_timeout(2000)
+        while not self.token:
+            await self.page.wait_for_timeout(2000)
 
         self.logger.info(f"Generated Token: {self.token}")
-        with open(self.output_file, 'a') as file:
-            file.write(f"\n{self.token}")
+        await asyncio.sleep(2)
+
+        is_locked = await self.is_locked()
+        if is_locked:
+            self.logger.error(f"Token {self.token} is locked!")
+            await self.close()
+            return
+        else:
+            self.logger.info(
+                f"Token: {self.token} is unlocked! Flags: {self.flags}")
 
         await self.page.wait_for_timeout(3000)
-        await self.type_humanly('[id="react-select-2-input"]', self.person.birth_day)
-        await self.page.keyboard.press("Enter")
-        await self.type_humanly('[id="react-select-3-input"]', self.person.birth_month)
-        await self.page.keyboard.press("Enter")
-        await self.type_humanly('[id="react-select-4-input"]', self.person.birth_year)
-        await self.page.keyboard.press("Enter")
-        self.logger.info("Successfully entered Birthday! Closing Browser...")
+        try:
+            await self.type_humanly('[id="react-select-2-input"]', self.faker.birth_day)
+            await self.page.keyboard.press("Enter")
+            await self.type_humanly('[id="react-select-3-input"]', self.faker.birth_month)
+            await self.page.keyboard.press("Enter")
+            await self.type_humanly('[id="react-select-4-input"]', self.faker.birth_year)
+            await self.page.keyboard.press("Enter")
+            await self.page.wait_for_timeout(1000)
+            await self.page.keyboard.press("Enter")
+        except:
+            pass
 
-        await self.page.close()
-        await self.browser.close()
+        if self.email_verification:
+            self.logger.info("Claiming Account...")
+            claim = await self.claim_account()
+            if claim:
+                self.logger.info("Verifying email...")
+                email_v = await self.confirm_email()
+
+        if self.humanize:
+            await self.humanize_token()
+
+        with open(self.output_file, 'a') as file:
+            file.write(
+                f"{self.token}:{self.inbox.address}:{self.faker.password}\n")
+
+        await self.close()
 
     async def generate_token(self):
         # Going on Discord Register Site
@@ -578,24 +626,29 @@ class Generator:
             await self.page.goto("https://discord.com/register")
         except:
             self.logger.error("Site didn´t load")
+            await self.close()
             return False
+        # Setting Up TokenLog
+        await self.log_token()
+        self.token = None
         # Typing Email, Username, Password
-        await self.type_humanly('[name="email"]', self.person.username+f"{random.randint(10,99)}@gmail.com")
-        await self.type_humanly('[name="username"]', self.person.username)
-        await self.type_humanly('[name="password"]', self.person.password)
+        self.inbox = TempMail.generateInbox()
+        await self.type_humanly('[name="email"]', self.inbox.address if self.email_verification else str(self.person.username+f"{random.randint(10, 99)}@gmail.com"))
+        await self.type_humanly('[name="username"]', self.faker.username)
+        await self.type_humanly('[name="password"]', self.faker.password)
         # Typing BirthDay, BirthMonth, BirthYear
-        await self.type_humanly('[id="react-select-2-input"]', self.person.birth_day)
+        await self.type_humanly('[id="react-select-2-input"]', self.faker.birth_day)
         await self.page.keyboard.press("Enter")
-        await self.type_humanly('[id="react-select-3-input"]', self.person.birth_month)
+        await self.type_humanly('[id="react-select-3-input"]', self.faker.birth_month)
         await self.page.keyboard.press("Enter")
-        await self.type_humanly('[id="react-select-4-input"]', self.person.birth_year)
+        await self.type_humanly('[id="react-select-4-input"]', self.faker.birth_year)
         # Clicking Tos and Submit Button
         try:
             await self.click_humanly("", "[type='checkbox']")
         except Exception as e:
             self.logger.debug("No TOS Checkbox was detected")
             pass
-        self.click_humanly("", '[type="submit"]')
+        await self.click_humanly("", '[type="submit"]')
         # Collecting all Images requested from hCaptcha (Captcha Images)
         self.images = []
 
@@ -608,38 +661,217 @@ class Generator:
         try:
             self.checkbox = self.page.frame_locator(
                 '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
+            await self.checkbox.scroll_into_view_if_needed(timeout=5000)
         except:
             self.logger.error("Captcha didn´t load")
+            await self.close()
             return False
-        await self.checkbox.scroll_into_view_if_needed()
         await self.click_humanly(self.checkbox, "")
         await self.page.wait_for_timeout(2000)
         captcha = await self.captcha_solver()
 
-        while True:
-            try:
-                await self.get_token()
-                break
-            except Exception as e:
-                await self.page.wait_for_timeout(2000)
+        while not self.token:
+            await self.page.wait_for_timeout(2000)
 
         self.logger.info(f"Generated Token: {self.token}")
+        await self.page.wait_for_timeout(2000)
+
+        is_locked = await self.is_locked()
+        if is_locked:
+            self.logger.error(f"Token {self.token} is locked!")
+            await self.close()
+            return
+        else:
+            self.logger.info(
+                f"Token: {self.token} is unlocked! Flags: {self.flags}")
+
+        if self.email_verification:
+            self.logger.info("Verifying email...")
+            email_v = await self.confirm_email()
+
+        if self.humanize:
+            await self.humanize_token()
+
         with open(self.output_file, 'a') as file:
-            file.write(f"\n{self.token}")
+            file.write(
+                f"{self.token}:{self.inbox.address}:{self.faker.password}\n")
 
         self.logger.info("Successfully Generated Account! Closing Browser...")
 
-        await self.page.close()
-        await self.browser.close()
+        await self.close()
+
+    # Discord Helper Functions
+    async def log_token(self):
+        async def check_json(route, request):
+            await route.continue_()
+            try:
+                response = await request.response()
+                await response.finished()
+                json = await response.json()
+                if json.get("token"):
+                    self.token = json.get("token")
+            except Exception:
+                pass
+
+        await self.page.route("https://discord.com/api/**", check_json)
+
+    async def is_locked(self):
+        token_check = httpx.get('https://discord.com/api/v9/users/@me/library',
+                                headers={"Authorization": self.token}).status_code == 200
+        if token_check:
+            r = httpx.get(
+                'https://discord.com/api/v9/users/@me', headers={"Authorization": self.token})
+            response = r.json()
+            self.id = response.get("id")
+            self.email = response.get("email")
+            self.username = response.get("username")
+            self.discriminator = response.get("discriminator")
+            self.tag = f"{self.username}#{self.discriminator}"
+            self.flags = response.get("public_flags")
+
+        return not token_check
+
+    async def humanize_token(self):
+        self.logger.info("Humanizing Token...")
+        # Initializing Discum if not already initialized
+        if 'bot' not in dir(self):
+            self.bot = discum.Client(
+                token=self.token, log=False, user_agent=self.faker.useragent, proxy=self.proxy if self.proxy else None)
+        else:
+            self.bot.switchAccount(self.token)
+
+        # Setting Random Avatar
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+            pics = await self.httpx.get(
+                "https://api.github.com/repos/itschasa/Discord-Scraped/git/trees/cbd70ab66ea1099d31d333ab75e3682fd2a80cff")
+            random_pic = random.choice(pics.json().get("tree")).get("path")
+            pic_url = f"https://raw.githubusercontent.com/itschasa/Discord-Scraped/main/avatars/{random_pic}"
+            pic = await self.httpx.get(pic_url)
+            tmp.write(pic.content)
+            tmp.seek(0)
+
+            self.bot.setAvatar(tmp.name)
+
+        # Setting AboutME
+        quote = await self.httpx.get("https://free-quotes-api.herokuapp.com")
+        quote = quote.json().get("quote")
+        self.bot.setAboutMe(quote)
+
+        # Setting Hypesquad
+        hypesquad = random.choice(
+            ["bravery", "brilliance", "balance"])
+        self.bot.setHypesquad(hypesquad)
+
+        self.logger.info(f"Set Hypesquad, Bio and ProfilePic!")
+
+    async def claim_account(self):
+        self.bot = discum.Client(
+            token=self.token, log=False, user_agent=self.faker.useragent, proxy=self.proxy if self.proxy else None)
+        self.inbox = TempMail.generateInbox()
+
+        self.bot._Client__user_password = self.faker.password
+        response = self.bot.setEmail(self.inbox.address)
+        if not response.status_code == 200:
+            try:
+                self.logger.error(
+                    f"Couldnt set email! Response: {response.json()}")
+            except:
+                self.logger.error(f"Couldnt set email!")
+            return False
+        else:
+            self.logger.info("Successfully set email! Verifying...")
+            try:
+                if response.json().get("token"):
+                    self.token = response.json().get("token")
+            except:
+                pass
+            return True
+
+    async def confirm_email(self):
+        self.logger.info("Confirming Email...")
+        # Getting the email confirmation link from the email
+        self.scrape_emails = True
+        while self.scrape_emails:
+            emails = TempMail.getEmails(self.inbox)
+            for mail in emails:
+                if "mail.discord.com" in str(mail.sender):
+                    for word in mail.body.split():
+                        if "https://click.discord.com" in word:
+                            self.email_link = word
+                            self.scrape_emails = False
+                            break
+
+        # Confirming the email by link
+        await self.page.goto(self.email_link)
+        # Collecting all Images requested from hCaptcha (Captcha Images)
+        self.images = []
+
+        async def image_append(route, request):
+            if request.resource_type == "image" and "hcaptcha" in request.url:
+                self.images.append(request.url)
+            await route.continue_()
+        await self.page.route("https://imgs.hcaptcha.com/*", image_append)
+        # Clicking Captcha Checkbox
+        try:
+            self.checkbox = self.page.frame_locator(
+                '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
+            await self.checkbox.scroll_into_view_if_needed(timeout=5000)
+        except:
+            self.logger.info("No Email Captcha was detected!")
+            return True
+        await self.click_humanly(self.checkbox, "")
+        await self.page.wait_for_timeout(2000)
+        captcha = await self.captcha_solver()
+        return True
+
+    # Testing (Maybe used later?)
+    async def login_token(self):
+        # Going on Discord Register Site
+        try:
+            await self.page.goto("https://discord.com/register")
+        except:
+            self.logger.error("Site didn´t load")
+            return False
+        await self.page.evaluate(str('setInterval(() => {document.body.appendChild(document.createElement `iframe`).contentWindow.localStorage.token = `"' + self.token + '"`}, 2500); setTimeout(() => {location.reload();}, 2500);'))
+        await self.page.wait_for_timeout(5000)
+        # self.logger.info("Claiming Account...")
+        # claim = await self.claim_account()
+        # if not claim:
+        #     return False
+        # self.logger.info("Verifying email...")
+        # email_v = await self.confirm_email()
+        # self.logger.info(self.token)
+        await self.humanize_token()
+        await self.close()
 
 
 async def main():
-    mode = input("[Select] - [Generation Mode]\n" + "<1> Generate Token\n" +
-                 "<2> Generate Unclaimed Token\n" + "<3> Test Captcha\n" + "</> ")
+    mode = input("[Select] - [Generation Mode]\n" + "<1> Generate Unclaimed Token\n" +
+                 "<2> Generate Token\n" + "<3> Test Captcha\n" + "</> ")
     if mode not in ("1", "2", "3"):
         raise ValueError("Invalid Mode provided")
     else:
         mode = int(mode)
+
+    if mode in (1, 2):
+        email = input("[Select] - [Email Verification]\n" + "<1> Verification Enabled\n" +
+                      "<2> No Verification\n" + "</> ")
+        if email not in ("1", "2"):
+            raise ValueError("Invalid Mode provided")
+        else:
+            email = True if email == "1" else False
+    else:
+        email = False
+
+    if mode in (1, 2):
+        humanize = input("[Select] - [Token Humanization]\n" + "<1> Humanization Enabled\n" +
+                         "<2> No Humanization\n" + "</> ")
+        if humanize not in ("1", "2"):
+            raise ValueError("Invalid Mode provided")
+        else:
+            humanize = True if humanize == "1" else False
+    else:
+        humanize = False
 
     threads = input("[Input] - [Threads Amount]\n" + "</> ")
     try:
@@ -664,13 +896,17 @@ async def main():
     else:
         output_file = "output.txt"
 
+    os.system('cls' if os.name == 'nt' else 'clear')
+
     while True:
         threadz = []
         for _ in range(threads):
             proxy = random.choice(proxies) if proxies else None
-            threadz.append(Generator().initialize(proxy, mode, output_file))
+            threadz.append(Generator().initialize(
+                proxy, mode, output_file, email, humanize))
 
         await asyncio.gather(*threadz)
+        await asyncio.sleep(2)
 
 
 if __name__ == '__main__':
