@@ -846,6 +846,12 @@ class Generator:
 
 
 async def main():
+    print(""" _____     __     ______     __         ______     ______     __  __    
+/\  __-.  /\ \   /\  ___\   /\ \       /\  __ \   /\  ___\   /\ \/ /    
+\ \ \/\ \ \ \ \  \ \___  \  \ \ \____  \ \ \/\ \  \ \ \____  \ \  _"-.  
+ \ \____-  \ \_\  \/\_____\  \ \_____\  \ \_____\  \ \_____\  \ \_\ \_\ 
+  \/____/   \/_/   \/_____/   \/_____/   \/_____/   \/_____/   \/_/\/_/    | Made by Vinyzu  
+                                                                           | https://github.com/Vinyzu/DiscordGenerator""")
     mode = input("[Select] - [Generation Mode]\n" + "<1> Generate Unclaimed Token\n" +
                  "<2> Generate Token\n" + "<3> Test Captcha\n" + "</> ")
     if mode not in ("1", "2", "3"):
