@@ -42,7 +42,7 @@ However, i edited out some code/files, to make DISLOCK lightweighter and to use 
 
 Also, i coded a MouseMovement Generator, to get more realistic MotionData. It uses Interpolation between CaptchaImage-Coordinates to do so.
 
-My Playwright hCaptchaSolver can be easily plugged by replicating [check_captcha()][https://github.com/Vinyzu/DiscordGenerator/blob/main/main.py#L491] in your project.
+My Playwright hCaptchaSolver can be easily plugged by replicating [check_captcha()](https://github.com/Vinyzu/DiscordGenerator/blob/main/main.py#L491) in your project.
 
 ## Installation
 
