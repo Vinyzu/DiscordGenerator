@@ -24,13 +24,13 @@ from hcaptcha_challenger import (DIR_CHALLENGE, DIR_MODEL, PATH_OBJECTS_YAML,
 
 
 class Faker():
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, proxy):
+        self.proxy = proxy
         return
 
     async def person(self, gender="random"):
         url = f"https://api.namefake.com/english-united-states/{gender}"
-        r = await self.client.get(url)
+        r = httpx.get(url)
         data = r.json()
         self.name = data.get("name")
         self.maiden_name = data.get("maiden_name")
@@ -55,7 +55,7 @@ class Faker():
 
     async def geolocation(self, country=""):
         url = f"https://api.3geonames.org/randomland.{country}.json"
-        r = await self.client.get(url)
+        r = httpx.get(url)
         data = r.json()["nearest"]
         self.latitude = data.get("latt")
         self.longitude = data.get("longt")
@@ -71,7 +71,8 @@ class Faker():
             # Sometimes the API is offline
             while True:
                 url = "http://fingerprints.bablosoft.com/preview?rand=0.1&tags=Firefox,Desktop,Microsoft%20Windows"
-                r = await self.client.get(url, timeout=5.0)
+                r = httpx.get(url, proxies=self.proxy,
+                              timeout=5.0, verify=False)
                 data = r.json()
                 self.useragent = data.get("ua")
                 self.vendor = data.get("vendor")
@@ -100,7 +101,7 @@ class Faker():
     # Shit Method To Get Locale of Country code
     async def locale(self, country_code="US"):
         url = f"https://restcountries.com/v3.1/alpha/{country_code}"
-        r = await self.client.get(url)
+        r = httpx.get(url)
         data = r.json()[0]
         self.languages = data.get("languages")
         self.language_code = list(self.languages.keys())[0][:2]
@@ -108,16 +109,27 @@ class Faker():
 
 
 class Proxy():
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, proxy):
+        self.proxy = proxy
         return
 
     def Split(self, proxy):
+        if not proxy:
+            return ["no", "proxy"]
         if "@" in proxy:
             first, second = proxy.split("@")
             _1, _2 = first.split(":")
             _3, _4 = second.split(":")
-            return [_3, _4, _1, _2]
+            if _2.isdigit():
+                return [_1, _2, _3, _4]
+            elif _4.isdigit():
+                return [_3, _4, _1, _2]
+        elif len(proxy.split(":")) > 2:
+            if proxy.split(":")[1].isdigit():
+                _1, _2, _3, _4 = proxy.split(":")
+                return [_3, _4, _1, _2]
+            elif proxy.split(":")[3].isdigit():
+                return proxy.split(":")
         else:
             return proxy.split(":")
 
@@ -143,9 +155,10 @@ class Proxy():
             return str(selff.__dict__)
 
     async def check(self, proxy):
-        ip_request = await self.client.get('https://ifconfig.me/ip')
+        ip_request = httpx.get('https://ifconfig.me/ip',
+                               proxies=self.proxy, verify=False)
         self.ip = ip_request.text
-        r = await self.client.get(f"http://ip-api.com/json/{self.ip}")
+        r = httpx.get(f"http://ip-api.com/json/{self.ip}")
         data = r.json()
         self.country = data.get("country")
         self.country_code = data.get("countryCode")
@@ -168,12 +181,18 @@ class Generator:
         self.logger = logging.getLogger('logger')
         self.logger.setLevel(logging.DEBUG)
         # Initializing Faker, ComputerInfo, PersonInfo and ProxyInfo
+        self.split_proxy = Proxy(None).Split(self.proxy)
+        if not self.split_proxy:
+            print(f"Could not split Proxy: {self.proxy}")
+            return False
+        correct_proxy = f"{self.split_proxy[2]}:{self.split_proxy[3]}@{self.split_proxy[0]}:{self.split_proxy[1]}" if len(
+            self.split_proxy) == 4 else f"{self.split_proxy[0]}:{self.split_proxy[1]}"
+        self.formatted_proxy = f"http://{correct_proxy}"  # Can be used later for socks
         httpx_proxy = {
-            "http://": f"http://{self.proxy}",
+            "all://": self.formatted_proxy,
         } if self.proxy else None
-        self.httpx = httpx.AsyncClient(proxies=httpx_proxy, verify=False)
 
-        self.faker, self.prox = Faker(self.httpx), Proxy(self.httpx)
+        self.faker, self.prox = Faker(httpx_proxy), Proxy(httpx_proxy)
 
         await self.prox.check(self.proxy)
         if not self.prox.country:
@@ -199,7 +218,6 @@ class Generator:
     async def initialize_browser(self):
         # Browser Proxy Formatter
         if self.proxy:
-            self.split_proxy = self.prox.Split(self.proxy)
             if len(self.split_proxy) == 4:
                 self.browser_proxy = {
                     "server": f"http://{self.split_proxy[0]}:" + self.split_proxy[1], "username": self.split_proxy[2], "password": self.split_proxy[3]}
@@ -253,10 +271,6 @@ class Generator:
             pass
         try:
             await self.playwright.stop()
-        except:
-            pass
-        try:
-            await self.httpx.aclose()
         except:
             pass
 
@@ -327,6 +341,14 @@ class Generator:
         # Get the Captcha X- and Y-Coordinates
         self.x_coordinates, self.y_coordinates = [
             _[0] for _ in self.captcha_points], [_[1] for _ in self.captcha_points]
+        # Fixxing https://github.com/Vinyzu/DiscordGenerator/issues/3 by adding an extra point
+        # (Its two points for real basicly you click an correct image two times again)
+        if len(self.x_coordinates) <= 2:
+            random_index = random.choice(range(len(self.x_coordinates)))
+            x1, x2 = self.x_coordinates[random_index] + 0.1, self.x_coordinates[random_index] - 0.1
+            self.x_coordinates.extend([x1, x2])
+            y1, y2 = self.y_coordinates[random_index] + 0.1, self.y_coordinates[random_index] - 0.1
+            self.y_coordinates.extend([y1, y2])
         # Devide x and y coordinates into two arrays
         x, y = np.array(self.x_coordinates), np.array(self.y_coordinates)
         # i dont even know, copy pasted from this so https://stackoverflow.com/a/47361677/16523207
@@ -604,12 +626,18 @@ class Generator:
         except:
             pass
 
+        self.bot = discum.Client(
+            token=self.token, log=True, user_agent=self.faker.useragent, proxy=self.formatted_proxy if self.proxy else None)
+
         if self.email_verification:
             self.logger.info("Claiming Account...")
             claim = await self.claim_account()
+
             if claim:
                 self.logger.info("Verifying email...")
                 email_v = await self.confirm_email()
+
+                self.bot.switchAccount(self.token)
 
         if self.humanize:
             await self.humanize_token()
@@ -685,9 +713,14 @@ class Generator:
             self.logger.info(
                 f"Token: {self.token} is unlocked! Flags: {self.flags}")
 
+        self.bot = discum.Client(
+            token=self.token, log=False, user_agent=self.faker.useragent, proxy=self.formatted_proxy if self.proxy else None)
+
         if self.email_verification:
             self.logger.info("Verifying email...")
             email_v = await self.confirm_email()
+
+            self.bot.switchAccount(self.token)
 
         if self.humanize:
             await self.humanize_token()
@@ -733,27 +766,21 @@ class Generator:
 
     async def humanize_token(self):
         self.logger.info("Humanizing Token...")
-        # Initializing Discum if not already initialized
-        if 'bot' not in dir(self):
-            self.bot = discum.Client(
-                token=self.token, log=False, user_agent=self.faker.useragent, proxy=self.proxy if self.proxy else None)
-        else:
-            self.bot.switchAccount(self.token)
 
         # Setting Random Avatar
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-            pics = await self.httpx.get(
+            pics = httpx.get(
                 "https://api.github.com/repos/itschasa/Discord-Scraped/git/trees/cbd70ab66ea1099d31d333ab75e3682fd2a80cff")
             random_pic = random.choice(pics.json().get("tree")).get("path")
             pic_url = f"https://raw.githubusercontent.com/itschasa/Discord-Scraped/main/avatars/{random_pic}"
-            pic = await self.httpx.get(pic_url)
+            pic = httpx.get(pic_url)
             tmp.write(pic.content)
             tmp.seek(0)
 
             self.bot.setAvatar(tmp.name)
 
         # Setting AboutME
-        quote = await self.httpx.get("https://free-quotes-api.herokuapp.com")
+        quote = httpx.get("https://free-quotes-api.herokuapp.com")
         quote = quote.json().get("quote")
         self.bot.setAboutMe(quote)
 
@@ -765,8 +792,6 @@ class Generator:
         self.logger.info(f"Set Hypesquad, Bio and ProfilePic!")
 
     async def claim_account(self):
-        self.bot = discum.Client(
-            token=self.token, log=False, user_agent=self.faker.useragent, proxy=self.proxy if self.proxy else None)
         self.inbox = TempMail.generateInbox()
 
         self.bot._Client__user_password = self.faker.password
@@ -788,6 +813,7 @@ class Generator:
             return True
 
     async def confirm_email(self):
+        before_token = self.token
         self.logger.info("Confirming Email...")
         # Getting the email confirmation link from the email
         self.scrape_emails = True
@@ -822,6 +848,10 @@ class Generator:
         await self.click_humanly(self.checkbox, "")
         await self.page.wait_for_timeout(2000)
         captcha = await self.captcha_solver()
+
+        # Waiting until new token is set
+        while self.token == before_token:
+            await asyncio.sleep(2)
         return True
 
     # Testing (Maybe used later?)
