@@ -98,7 +98,7 @@ class Solutions:
 
         print(f"Downloading {model_name} from {model_src}")
         with httpx.stream(method="GET", url=model_src) as response, open(path_model, "wb") as file:
-            for chunk in response.iter_content(chunk_size=1024):
+            for chunk in response.iter_bytes():
                 if chunk:
                     file.write(chunk)
 
