@@ -7,7 +7,7 @@ import hashlib
 import os
 from typing import Optional
 
-import httpx
+import requests
 import yaml
 
 
@@ -40,7 +40,8 @@ class Solutions:
         }
 
         if convert or not os.path.exists(rainbow_obj["path"]):
-            print(f"Downloading {rainbow_obj['name']} from {rainbow_obj['src']}")
+            print(
+                f"Downloading {rainbow_obj['name']} from {rainbow_obj['src']}")
             with httpx.stream(method="GET", url=rainbow_obj["src"]) as response, open(
                 rainbow_obj["path"], "wb"
             ) as file:
@@ -61,7 +62,8 @@ class Solutions:
         if os.path.exists(path_rainbow):
             with open(path_rainbow, "r", encoding="utf8") as file:
                 stream = yaml.safe_load(file)
-            Solutions.RAINBOW_TABLE = stream if isinstance(stream, dict) else {}
+            Solutions.RAINBOW_TABLE = stream if isinstance(
+                stream, dict) else {}
 
         return Solutions.RAINBOW_TABLE
 
@@ -97,7 +99,7 @@ class Solutions:
             raise ValueError from None
 
         print(f"Downloading {model_name} from {model_src}")
-        with httpx.stream(method="GET", url=model_src) as response, open(path_model, "wb") as file:
+        with requests.get(model_src, stream=True) as response, open(path_model, "wb") as file:
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
                     file.write(chunk)

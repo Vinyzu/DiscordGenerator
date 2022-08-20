@@ -21,6 +21,7 @@ from TempMail import TempMail
 # Imports from Files
 from hcaptcha_challenger import (DIR_CHALLENGE, DIR_MODEL, PATH_OBJECTS_YAML,
                                  ArmorCaptcha)
+from hcaptcha_challenger.solutions.kernel import Solutions
 
 
 class Faker():
@@ -111,63 +112,67 @@ class Faker():
 class Proxy():
     def __init__(self, proxy):
         self.proxy = proxy
-        return
+        self.http_proxy = None
+        self.ip = None
+        self.port = None
+        self.username = None
+        self.password = None
 
-    def Split(self, proxy):
-        if not proxy:
-            return ["no", "proxy"]
-        if "@" in proxy:
-            first, second = proxy.split("@")
-            _1, _2 = first.split(":")
-            _3, _4 = second.split(":")
-            if _2.isdigit():
-                return [_1, _2, _3, _4]
-            elif _4.isdigit():
-                return [_3, _4, _1, _2]
-        elif len(proxy.split(":")) > 2:
-            if proxy.split(":")[1].isdigit():
-                _1, _2, _3, _4 = proxy.split(":")
-                return [_3, _4, _1, _2]
-            elif proxy.split(":")[3].isdigit():
-                return proxy.split(":")
+        if self.proxy:
+            self.split_proxy()
+            self.proxy = f"{self.username}:{self.password}@{self.ip}:{self.port}" if self.username else f"{self.ip}:{self.port}"
+            self.http_proxy = f"http://{self.proxy}"
+        self.httpx_proxy = {"all://": self.http_proxy} if self.proxy else None
+
+        self.check_proxy()
+
+    def split_helper(self, splitted):
+        if not any([_.isdigit() for _ in splitted]):
+            raise GeneratorExit("No ProxyPort could be detected")
+        if splitted[1].isdigit():
+            self.ip, self.port, self.username, self.password = splitted
+        elif splitted[3].isdigit():
+            self.username, self.password, self.ip, self.port = splitted
         else:
-            return proxy.split(":")
+            raise GeneratorExit(f"Proxy Format ({self.proxy}) isnt supported")
 
-    # OldCheck (Rate Limitation)
-    class OldCheck():
-        def __init__(selff, client, proxy):
-            proxies = {"http": f"http://{proxy}",
-                       "https": f"http://{proxy}"} if proxy else {}
-            r = httpx.get("http://ip-api.com/json/", proxies=proxies)
+    def split_proxy(self):
+        splitted = self.proxy.split(":")
+        if len(splitted) == 2:
+            self.ip, self.port = splitted
+        elif len(splitted) == 3:
+            if "@" in self.proxy:
+                helper = [_.split(":") for _ in self.proxy.split("@")]
+                splitted = [x for y in helper for x in y]
+                self.split_helper(splitted)
+            else:
+                raise GeneratorExit(
+                    f"Proxy Format ({self.proxy}) isnt supported")
+        elif len(splitted) == 4:
+            self.split_helper(splitted)
+        else:
+            raise GeneratorExit(f"Proxy Format ({self.proxy}) isnt supported")
+
+    def check_proxy(self):
+        try:
+            ip_request = httpx.get('https://ifconfig.me/ip',
+                                   proxies=self.httpx_proxy, verify=False)
+            ip = ip_request.text
+            r = httpx.get(f"http://ip-api.com/json/{ip}")
             data = r.json()
-            selff.country = data.get("country")
-            selff.country_code = data.get("countryCode")
-            selff.region = data.get("region")
-            selff.city = data.get("city")
-            selff.zip = data.get("zip")
-            selff.country = data.get("country")
-            selff.latitude = data.get("lat")
-            selff.longitude = data.get("lon")
-            selff.timezone = data.get("timezone")
-            selff.ip = data.get("query")
+            self.country = data.get("country")
+            self.country_code = data.get("countryCode")
+            self.region = data.get("regionName")
+            self.city = data.get("city")
+            self.zip = data.get("zip")
+            self.latitude = data.get("lat")
+            self.longitude = data.get("lon")
+            self.timezone = data.get("timezone")
 
-        def __str__(selff):
-            return str(selff.__dict__)
-
-    async def check(self, proxy):
-        ip_request = httpx.get('https://ifconfig.me/ip',
-                               proxies=self.proxy, verify=False)
-        self.ip = ip_request.text
-        r = httpx.get(f"http://ip-api.com/json/{self.ip}")
-        data = r.json()
-        self.country = data.get("country")
-        self.country_code = data.get("countryCode")
-        self.region = data.get("regionName")
-        self.city = data.get("city")
-        self.zip = data.get("zip")
-        self.latitude = data.get("lat")
-        self.longitude = data.get("lon")
-        self.timezone = data.get("timezone")
+            if not self.country:
+                raise GeneratorExit
+        except:
+            raise GeneratorExit("Could not get GeoInformation from proxy (Proxy is Invalid/Failed Check)")
 
 
 class Generator:
@@ -181,27 +186,17 @@ class Generator:
         self.logger = logging.getLogger('logger')
         self.logger.setLevel(logging.DEBUG)
         # Initializing Faker, ComputerInfo, PersonInfo and ProxyInfo
-        self.split_proxy = Proxy(None).Split(self.proxy)
-        if not self.split_proxy:
-            print(f"Could not split Proxy: {self.proxy}")
+        try:
+            self.proxy = Proxy(self.proxy)
+        except Exception as e:
+            self.logger.error(str(e))
             return False
-        correct_proxy = f"{self.split_proxy[2]}:{self.split_proxy[3]}@{self.split_proxy[0]}:{self.split_proxy[1]}" if len(
-            self.split_proxy) == 4 else f"{self.split_proxy[0]}:{self.split_proxy[1]}"
-        self.formatted_proxy = f"http://{correct_proxy}"  # Can be used later for socks
-        httpx_proxy = {
-            "all://": self.formatted_proxy,
-        } if self.proxy else None
 
-        self.faker, self.prox = Faker(httpx_proxy), Proxy(httpx_proxy)
-
-        await self.prox.check(self.proxy)
-        if not self.prox.country:
-            self.logger.error("Couldnt load the Proxy info")
-            return
+        self.faker = Faker(self.proxy.httpx_proxy)
 
         await self.faker.computer()
         await self.faker.person()
-        await self.faker.locale(self.prox.country_code)
+        await self.faker.locale(self.proxy.country_code)
 
         # Initializing LocaleInfo and Browser
         await self.initialize_browser()
@@ -217,15 +212,15 @@ class Generator:
 
     async def initialize_browser(self):
         # Browser Proxy Formatter
-        if self.proxy:
-            if len(self.split_proxy) == 4:
+        if self.proxy.proxy:
+            if self.proxy.username:
                 self.browser_proxy = {
-                    "server": f"http://{self.split_proxy[0]}:" + self.split_proxy[1], "username": self.split_proxy[2], "password": self.split_proxy[3]}
+                    "server": f"http://{self.proxy.ip}:{self.proxy.port}", "username": self.proxy.username, "password": self.proxy.password}
             else:
                 self.browser_proxy = {
-                    "server": f"http://{self.split_proxy[0]}:" + self.split_proxy[1]}
+                    "server": f"http://{self.proxy.ip}:{self.proxy.port}"}
         else:
-            self.browser_proxy = {}
+            self.browser_proxy = None
         # Starting Playwright
         self.playwright = await async_playwright().start()
         # Launching Firefox with Human Emulation
@@ -233,18 +228,18 @@ class Generator:
         # Context for more options
         browser = await main_browser.new_context(
             locale="en-US",  # self.faker.locale
-            geolocation={'longitude': self.prox.longitude,
-                         'latitude': self.prox.latitude, "accuracy": 0.7},
-            timezone_id=self.prox.timezone,
+            geolocation={'longitude': self.proxy.longitude,
+                         'latitude': self.proxy.latitude, "accuracy": 0.7},
+            timezone_id=self.proxy.timezone,
             permissions=['geolocation'],
             screen={"width": self.faker.avail_width,
                     "height": self.faker.avail_height},
             user_agent=self.faker.useragent,
             viewport={"width": self.faker.width,
                       "height": self.faker.height},
-            proxy=self.browser_proxy if self.proxy else None,
+            proxy=self.browser_proxy,
             http_credentials={
-                "username": self.split_proxy[2], "password": self.split_proxy[3]} if len(self.split_proxy) == 4 else None
+                "username": self.proxy.username, "password": self.proxy.password} if self.proxy.username else None
         )
         # Grant Permissions to Discord to use Geolocation
         await browser.grant_permissions(["geolocation"], origin="https://discord.com")
@@ -627,7 +622,7 @@ class Generator:
             pass
 
         self.bot = discum.Client(
-            token=self.token, log=True, user_agent=self.faker.useragent, proxy=self.formatted_proxy if self.proxy else None)
+            token=self.token, log=True, user_agent=self.faker.useragent, proxy=self.proxy.http_proxy if self.proxy.proxy else None)
 
         if self.email_verification:
             self.logger.info("Claiming Account...")
@@ -672,7 +667,8 @@ class Generator:
         await self.type_humanly('[id="react-select-4-input"]', self.faker.birth_year)
         # Clicking Tos and Submit Button
         try:
-            await self.click_humanly("", "[type='checkbox']")
+            tos_box = self.page.locator("[type='checkbox']").first
+            await self.click_humanly(tos_box, "")
         except Exception as e:
             self.logger.debug("No TOS Checkbox was detected")
             pass
@@ -714,7 +710,7 @@ class Generator:
                 f"Token: {self.token} is unlocked! Flags: {self.flags}")
 
         self.bot = discum.Client(
-            token=self.token, log=False, user_agent=self.faker.useragent, proxy=self.formatted_proxy if self.proxy else None)
+            token=self.token, log=False, user_agent=self.faker.useragent, proxy=self.proxy.http_proxy if self.proxy.proxy else None)
 
         if self.email_verification:
             self.logger.info("Verifying email...")
@@ -876,6 +872,19 @@ class Generator:
 
 
 async def main():
+    # Downloading all AI Files
+    dir_model = os.path.join(os.path.dirname(__file__), "model")
+    if not os.path.exists(dir_model):
+        print("Download all AI Files...")
+        r = httpx.get(
+            "https://api.github.com/repos/QIN2DIM/hcaptcha-challenger/releases")
+        for asset in r.json()[0].get("assets"):
+            url = asset.get("browser_download_url")
+            name = asset.get("name")
+            path = os.path.join(dir_model, name)
+            print(f"Dowloading {name}...")
+            Solutions.download_model_(dir_model, path, url, name)
+
     print(""" _____     __     ______     __         ______     ______     __  __    
 /\  __-.  /\ \   /\  ___\   /\ \       /\  __ \   /\  ___\   /\ \/ /    
 \ \ \/\ \ \ \ \  \ \___  \  \ \ \____  \ \ \/\ \  \ \ \____  \ \  _"-.  
