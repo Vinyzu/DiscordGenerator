@@ -111,7 +111,7 @@ class Faker():
 
 class Proxy():
     def __init__(self, proxy):
-        self.proxy = proxy
+        self.proxy = proxy.strip()
         self.http_proxy = None
         self.ip = None
         self.port = None
@@ -540,7 +540,7 @@ class Generator:
         try:
             self.checkbox = self.page.frame_locator(
                 '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
-            await self.checkbox.scroll_into_view_if_needed(timeout=5000)
+            await self.checkbox.scroll_into_view_if_needed(timeout=20000)
         except Exception as e:
             self.logger.error("Captcha didn´t load")
             return False
@@ -584,7 +584,7 @@ class Generator:
         try:
             self.checkbox = self.page.frame_locator(
                 '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
-            await self.checkbox.scroll_into_view_if_needed(timeout=5000)
+            await self.checkbox.scroll_into_view_if_needed(timeout=20000)
         except:
             self.logger.error("Captcha didn´t load")
             await self.close()
@@ -638,8 +638,12 @@ class Generator:
             await self.humanize_token()
 
         with open(self.output_file, 'a') as file:
-            file.write(
+            if self.email_verification:
+              file.write(
                 f"{self.token}:{self.inbox.address}:{self.faker.password}\n")
+            else:
+              file.write(
+                f"{self.token}\n")
 
         await self.close()
 
