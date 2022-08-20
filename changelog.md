@@ -2,6 +2,14 @@
 
 Every new change will be logged
 
+## v1.0.2
+```
++ Updated Model Downloader (httpx doesnt work)
+--> Now, Models dont have to be given in the repo
++ Updated Proxy Class (Splitter) and general proxy-object handling
+
+```
+
 ## v1.0.1
 ```
 + Updated various Proxy Handlers
