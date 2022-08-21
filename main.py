@@ -111,7 +111,7 @@ class Faker():
 
 class Proxy():
     def __init__(self, proxy):
-        self.proxy = proxy.strip()
+        self.proxy = proxy.strip() if proxy else None
         self.http_proxy = None
         self.ip = None
         self.port = None
@@ -172,7 +172,8 @@ class Proxy():
             if not self.country:
                 raise GeneratorExit
         except:
-            raise GeneratorExit("Could not get GeoInformation from proxy (Proxy is Invalid/Failed Check)")
+            raise GeneratorExit(
+                "Could not get GeoInformation from proxy (Proxy is Invalid/Failed Check)")
 
 
 class Generator:
@@ -340,9 +341,11 @@ class Generator:
         # (Its two points for real basicly you click an correct image two times again)
         if len(self.x_coordinates) <= 2:
             random_index = random.choice(range(len(self.x_coordinates)))
-            x1, x2 = self.x_coordinates[random_index] + 0.1, self.x_coordinates[random_index] - 0.1
+            x1, x2 = self.x_coordinates[random_index] + \
+                0.1, self.x_coordinates[random_index] - 0.1
             self.x_coordinates.extend([x1, x2])
-            y1, y2 = self.y_coordinates[random_index] + 0.1, self.y_coordinates[random_index] - 0.1
+            y1, y2 = self.y_coordinates[random_index] + \
+                0.1, self.y_coordinates[random_index] - 0.1
             self.y_coordinates.extend([y1, y2])
         # Devide x and y coordinates into two arrays
         x, y = np.array(self.x_coordinates), np.array(self.y_coordinates)
@@ -640,10 +643,10 @@ class Generator:
         with open(self.output_file, 'a') as file:
             if self.email_verification:
               file.write(
-                f"{self.token}:{self.inbox.address}:{self.faker.password}\n")
+                  f"{self.token}:{self.inbox.address}:{self.faker.password}\n")
             else:
               file.write(
-                f"{self.token}\n")
+                  f"{self.token}\n")
 
         await self.close()
 
@@ -690,7 +693,8 @@ class Generator:
             self.checkbox = self.page.frame_locator(
                 '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
             await self.checkbox.scroll_into_view_if_needed(timeout=5000)
-        except:
+        except Exception as e:
+            print(str(e))
             self.logger.error("Captcha didn´t load")
             await self.close()
             return False
