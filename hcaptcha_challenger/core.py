@@ -42,6 +42,7 @@ class ArmorCaptcha:
             "elephant": "elephant",
             "parrot": "bird",
             "bird": "bird",
+            "dog": "dog",
             "canine": "dog",
         },
     }

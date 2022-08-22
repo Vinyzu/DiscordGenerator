@@ -11,17 +11,17 @@ import tempfile
 import numpy as np
 import scipy.interpolate
 import playwright_stealth
-import httpx
+import requests
 from playwright.async_api import async_playwright
 from random_user_agent.user_agent import UserAgent
 from random_user_agent.params import SoftwareName, OperatingSystem
 import discum
-from TempMail import TempMail
 
 # Imports from Files
 from hcaptcha_challenger import (DIR_CHALLENGE, DIR_MODEL, PATH_OBJECTS_YAML,
                                  ArmorCaptcha)
 from hcaptcha_challenger.solutions.kernel import Solutions
+from tempmail import TempMail
 
 
 class Faker():
@@ -31,7 +31,7 @@ class Faker():
 
     async def person(self, gender="random"):
         url = f"https://api.namefake.com/english-united-states/{gender}"
-        r = httpx.get(url)
+        r = requests.get(url)
         data = r.json()
         self.name = data.get("name")
         self.maiden_name = data.get("maiden_name")
@@ -56,7 +56,7 @@ class Faker():
 
     async def geolocation(self, country=""):
         url = f"https://api.3geonames.org/randomland.{country}.json"
-        r = httpx.get(url)
+        r = requests.get(url)
         data = r.json()["nearest"]
         self.latitude = data.get("latt")
         self.longitude = data.get("longt")
@@ -72,8 +72,8 @@ class Faker():
             # Sometimes the API is offline
             while True:
                 url = "http://fingerprints.bablosoft.com/preview?rand=0.1&tags=Firefox,Desktop,Microsoft%20Windows"
-                r = httpx.get(url, proxies=self.proxy,
-                              timeout=5.0, verify=False)
+                r = requests.get(url, proxies=self.proxy,
+                                 timeout=20, verify=False)
                 data = r.json()
                 self.useragent = data.get("ua")
                 self.vendor = data.get("vendor")
@@ -102,7 +102,7 @@ class Faker():
     # Shit Method To Get Locale of Country code
     async def locale(self, country_code="US"):
         url = f"https://restcountries.com/v3.1/alpha/{country_code}"
-        r = httpx.get(url)
+        r = requests.get(url)
         data = r.json()[0]
         self.languages = data.get("languages")
         self.language_code = list(self.languages.keys())[0][:2]
@@ -111,7 +111,7 @@ class Faker():
 
 class Proxy():
     def __init__(self, proxy):
-        self.proxy = proxy
+        self.proxy = proxy.strip() if proxy else None
         self.http_proxy = None
         self.ip = None
         self.port = None
@@ -122,7 +122,8 @@ class Proxy():
             self.split_proxy()
             self.proxy = f"{self.username}:{self.password}@{self.ip}:{self.port}" if self.username else f"{self.ip}:{self.port}"
             self.http_proxy = f"http://{self.proxy}"
-        self.httpx_proxy = {"all://": self.http_proxy} if self.proxy else None
+        self.httpx_proxy = {"http": self.http_proxy,
+                            "https": self.http_proxy} if self.proxy else None
 
         self.check_proxy()
 
@@ -155,10 +156,10 @@ class Proxy():
 
     def check_proxy(self):
         try:
-            ip_request = httpx.get('https://ifconfig.me/ip',
+            ip_request = requests.get('https://ifconfig.me/ip',
                                    proxies=self.httpx_proxy, verify=False)
             ip = ip_request.text
-            r = httpx.get(f"http://ip-api.com/json/{ip}")
+            r = requests.get(f"http://ip-api.com/json/{ip}")
             data = r.json()
             self.country = data.get("country")
             self.country_code = data.get("countryCode")
@@ -172,7 +173,8 @@ class Proxy():
             if not self.country:
                 raise GeneratorExit
         except:
-            raise GeneratorExit("Could not get GeoInformation from proxy (Proxy is Invalid/Failed Check)")
+            raise GeneratorExit(
+                "Could not get GeoInformation from proxy (Proxy is Invalid/Failed Check)")
 
 
 class Generator:
@@ -340,9 +342,11 @@ class Generator:
         # (Its two points for real basicly you click an correct image two times again)
         if len(self.x_coordinates) <= 2:
             random_index = random.choice(range(len(self.x_coordinates)))
-            x1, x2 = self.x_coordinates[random_index] + 0.1, self.x_coordinates[random_index] - 0.1
+            x1, x2 = self.x_coordinates[random_index] + \
+                1, self.x_coordinates[random_index] - 1
             self.x_coordinates.extend([x1, x2])
-            y1, y2 = self.y_coordinates[random_index] + 0.1, self.y_coordinates[random_index] - 0.1
+            y1, y2 = self.y_coordinates[random_index] + \
+                1, self.y_coordinates[random_index] - 1
             self.y_coordinates.extend([y1, y2])
         # Devide x and y coordinates into two arrays
         x, y = np.array(self.x_coordinates), np.array(self.y_coordinates)
@@ -375,6 +379,25 @@ class Generator:
 
         await self.page.route("https://hcaptcha.com/checkcaptcha/**", check_json)
 
+    async def captcha_module(self):
+        # Getting first 9 of the logged Images (First nine are the CaptchaImages)
+        for image_url in self.images[:9]:
+            # Getting Content of Image
+            data = requests.get(image_url).content
+            # Getting Result from AI and appending it to list
+            try:
+                result = self.model.solution(
+                    img_stream=data, label=self.challenger.label_alias[self.label])
+            except KeyError as e:
+                self.logger.error(f"AI doesnt support {self.label} yet!")
+                self.images = []
+                await self.click_humanly(self.checkbox, "")
+                await self.page.wait_for_timeout(2000)
+                await self.click_humanly(self.checkbox, "")
+                await self.captcha_solver()
+                return
+            self.results.append(result)
+
     async def captcha_solver(self):
         # Setup CaptchaToken Logger
         self.captcha_token = None
@@ -395,6 +418,7 @@ class Generator:
                 "//h2[@class='prompt-text']")
             question = await question_locator.text_content()
         except Exception as e:
+            print(e)
             self.logger.error("Captcha Question didnt load")
             await self.close()
             return False
@@ -410,32 +434,24 @@ class Generator:
         self.model = self.challenger.switch_solution()  # DIR_MODEL, None
         # Solving Captcha with AI
         self.results, timee = [], time.perf_counter()
-        # Getting first 9 of the logged Images (First nine are the CaptchaImages)
-        for image_url in self.images[:9]:
-            # Getting Content of Image
-            data = httpx.get(image_url).content
-            # Getting Result from AI and appending it to list
-            try:
-                result = self.model.solution(
-                    img_stream=data, label=self.challenger.label_alias[self.label])
-            except KeyError:
-                self.logger.error(f"AI doesnt support {self.label} yet!")
-                self.images = []
-                await self.click_humanly(self.checkbox, "")
-                await self.page.wait_for_timeout(2000)
-                await self.click_humanly(self.checkbox, "")
-                await self.captcha_solver()
-                return
-            self.results.append(result)
-        await self.page.wait_for_timeout(1000)
+        for i in range(3):
+            await self.captcha_module()
+            if not any(self.results):
+                self.logger.warning(
+                    "AI Results were incorrect, retrying AI")
+                pass
+            else:
+                break
         # If Results are Invalid Reload Captcha and Recurse
-        if not any(self.results):
+        else:
             self.logger.warning("AI Results were incorrect, redoing Captcha")
             self.images = []
             await self.click_humanly(self.checkbox, "")
             await self.page.wait_for_timeout(2000)
             await self.click_humanly(self.checkbox, "")
             await self.captcha_solver()
+            return
+
         self.logger.info(
             f"AI-Results (solved in {round(time.perf_counter() - timee, 5)}s): {self.results}")
         # More Realistic Human Behaviour
@@ -460,6 +476,9 @@ class Generator:
                         break
 
         self.logger.debug(self.captcha_points)
+        if not self.captcha_points:
+            # Ignore
+            return False
         # Get Coodinates of Smooth out mouse line
         self.x_new, self.y_new = self.smooth_out_mouse()
         # Method to insert the Original Captcha Points into the Curve Points
@@ -540,7 +559,7 @@ class Generator:
         try:
             self.checkbox = self.page.frame_locator(
                 '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
-            await self.checkbox.scroll_into_view_if_needed(timeout=5000)
+            await self.checkbox.scroll_into_view_if_needed(timeout=20000)
         except Exception as e:
             self.logger.error("Captcha didn´t load")
             return False
@@ -567,7 +586,7 @@ class Generator:
         await self.type_humanly('[class *= "username"]', self.faker.username)
         # Clicking Tos and Submit Button
         try:
-            await self.click_humanly("", "[class *='termsCheckbox']", timeout=5000)
+            await self.click_humanly("", "[class *='termsCheckbox']", timeout=10000)
         except Exception as e:
             self.logger.debug("No TOS Checkbox was detected")
             pass
@@ -584,7 +603,7 @@ class Generator:
         try:
             self.checkbox = self.page.frame_locator(
                 '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
-            await self.checkbox.scroll_into_view_if_needed(timeout=5000)
+            await self.checkbox.scroll_into_view_if_needed(timeout=20000)
         except:
             self.logger.error("Captcha didn´t load")
             await self.close()
@@ -622,7 +641,7 @@ class Generator:
             pass
 
         self.bot = discum.Client(
-            token=self.token, log=True, user_agent=self.faker.useragent, proxy=self.proxy.http_proxy if self.proxy.proxy else None)
+            token=self.token, log=False, user_agent=self.faker.useragent, proxy=self.proxy.http_proxy if self.proxy.proxy else None)
 
         if self.email_verification:
             self.logger.info("Claiming Account...")
@@ -638,8 +657,12 @@ class Generator:
             await self.humanize_token()
 
         with open(self.output_file, 'a') as file:
-            file.write(
-                f"{self.token}:{self.inbox.address}:{self.faker.password}\n")
+            if self.email_verification:
+                file.write(
+                    f"{self.token}:{self.inbox.address}:{self.faker.password}\n")
+            else:
+                file.write(
+                    f"{self.token}\n")
 
         await self.close()
 
@@ -655,7 +678,7 @@ class Generator:
         await self.log_token()
         self.token = None
         # Typing Email, Username, Password
-        self.inbox = TempMail.generateInbox()
+        self.inbox = TempMail.generateInbox(rush=True)
         await self.type_humanly('[name="email"]', self.inbox.address if self.email_verification else str(self.person.username+f"{random.randint(10, 99)}@gmail.com"))
         await self.type_humanly('[name="username"]', self.faker.username)
         await self.type_humanly('[name="password"]', self.faker.password)
@@ -685,8 +708,9 @@ class Generator:
         try:
             self.checkbox = self.page.frame_locator(
                 '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
-            await self.checkbox.scroll_into_view_if_needed(timeout=5000)
-        except:
+            await self.checkbox.scroll_into_view_if_needed(timeout=20000)
+        except Exception as e:
+            print(str(e))
             self.logger.error("Captcha didn´t load")
             await self.close()
             return False
@@ -745,11 +769,11 @@ class Generator:
         await self.page.route("https://discord.com/api/**", check_json)
 
     async def is_locked(self):
-        token_check = httpx.get('https://discord.com/api/v9/users/@me/library',
-                                headers={"Authorization": self.token}).status_code == 200
+        token_check = requests.get('https://discord.com/api/v9/users/@me/library',
+                                headers={"Authorization": self.token}, proxies=self.proxy.httpx_proxy).status_code == 200
         if token_check:
-            r = httpx.get(
-                'https://discord.com/api/v9/users/@me', headers={"Authorization": self.token})
+            r = requests.get(
+                'https://discord.com/api/v9/users/@me', headers={"Authorization": self.token}, proxies=self.proxy.httpx_proxy)
             response = r.json()
             self.id = response.get("id")
             self.email = response.get("email")
@@ -765,18 +789,20 @@ class Generator:
 
         # Setting Random Avatar
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-            pics = httpx.get(
+            pics = requests.get(
                 "https://api.github.com/repos/itschasa/Discord-Scraped/git/trees/cbd70ab66ea1099d31d333ab75e3682fd2a80cff")
             random_pic = random.choice(pics.json().get("tree")).get("path")
             pic_url = f"https://raw.githubusercontent.com/itschasa/Discord-Scraped/main/avatars/{random_pic}"
-            pic = httpx.get(pic_url)
+            pic = requests.get(pic_url)
             tmp.write(pic.content)
             tmp.seek(0)
 
-            self.bot.setAvatar(tmp.name)
+            response = self.bot.setAvatar(tmp.name)
+            if "Unknown Session" in str(response.text):
+                self.logger.warning("Coulnt set Pfp!")
 
         # Setting AboutME
-        quote = httpx.get("https://free-quotes-api.herokuapp.com")
+        quote = requests.get("https://free-quotes-api.herokuapp.com")
         quote = quote.json().get("quote")
         self.bot.setAboutMe(quote)
 
@@ -788,7 +814,7 @@ class Generator:
         self.logger.info(f"Set Hypesquad, Bio and ProfilePic!")
 
     async def claim_account(self):
-        self.inbox = TempMail.generateInbox()
+        self.inbox = TempMail.generateInbox(rush=True)
 
         self.bot._Client__user_password = self.faker.password
         response = self.bot.setEmail(self.inbox.address)
@@ -822,7 +848,7 @@ class Generator:
                             self.email_link = word
                             self.scrape_emails = False
                             break
-
+        self.email_link = self.email_link.replace("[", "").replace("]", "")
         # Confirming the email by link
         await self.page.goto(self.email_link)
         # Collecting all Images requested from hCaptcha (Captcha Images)
@@ -837,7 +863,7 @@ class Generator:
         try:
             self.checkbox = self.page.frame_locator(
                 '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
-            await self.checkbox.scroll_into_view_if_needed(timeout=5000)
+            await self.checkbox.scroll_into_view_if_needed(timeout=10000)
         except:
             self.logger.info("No Email Captcha was detected!")
             return True
@@ -876,7 +902,7 @@ async def main():
     dir_model = os.path.join(os.path.dirname(__file__), "model")
     if not os.path.exists(dir_model):
         print("Download all AI Files...")
-        r = httpx.get(
+        r = requests.get(
             "https://api.github.com/repos/QIN2DIM/hcaptcha-challenger/releases")
         for asset in r.json()[0].get("assets"):
             url = asset.get("browser_download_url")
