@@ -65,7 +65,7 @@ class TempMail:
                 emails.append(Email(email["from"], email["to"], email["subject"], email["body"], email["html"], email["date"]))
             return emails
 
- class Email:
+class Email:
     def __init__(self, sender, recipient, subject, body, html, date):
         #make the propertys immutable using @property
         self._sender = sender
