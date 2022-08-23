@@ -2,6 +2,25 @@
 
 Every new change will be logged
 
+## v1.0.4
+```
++ Tokens will now be saved even when the gen crashes
++ OutputFormat can now be set
++ Passwords now dont have ":" in them anymore (Messed up output format)
++ Delete verify=False in requests (caused warnings)
++ Fixxed Issue that NormalGenerator would save tempmail even when EmailVerification was disabled.
+
+```
+
+## v1.0.3
+```
++ Raised Timeouts to allow slow proxies to work properly
++ Changed usage of TempmailAPI from package to local file
++ Updated AI to check images three times for any valid images
++ Replaced Httpx with Requests
+
+```
+
 ## v1.0.2
 ```
 + Updated Model Downloader (httpx doesnt work)
