@@ -25,36 +25,27 @@ from hcaptcha_challenger.solutions.kernel import Solutions
 from tempmail import TempMail
 
 
+NAMES = requests.get(
+    "https://raw.githubusercontent.com/itschasa/Discord-Scraped/main/names.txt").text.splitlines()
+NAMES = [x for x in NAMES if len(x) >= 8]
+
+PASSWORDS = requests.get(
+    "https://raw.githubusercontent.com/berzerk0/Probable-Wordlists/master/Real-Passwords/WPA-Length/Top4800-WPA-probable-v2.txt").text.splitlines()
+PASSWORDS = [x + "".join(random.choice(["!", "$", "§", ".", ",", "(", ")", "/", "?", "%", "+", "*", "-", "_"])
+                         for _ in range(random.randint(2, 5))) for x in PASSWORDS if len(x) >= 8]
+
+
 class Faker:
     def __init__(self, proxy):
         self.proxy = proxy
         return
 
-    async def person(self, gender="random"):
-        url = f"https://api.namefake.com/english-united-states/{gender}"
-        r = requests.get(url)
-        data = r.json()
-        self.name = data.get("name")
-        self.maiden_name = data.get("maiden_name")
-        self.birth_date = data.get("birth_data")
-        self.birth_year = self.birth_date.split("-")[0]
-        # self.birth_month = self.birth_date.split("-")[1]
-        # self.birth_day = self.birth_date.split("-")[2]
+    async def person(self):
+        self.username = random.choice(NAMES)
+        self.password = random.choice(PASSWORDS)
+        self.birth_year = str(random.randint(1950, 2000))
         self.birth_month = str(random.randint(1, 12))
         self.birth_day = str(random.randint(1, 12))
-        self.email_name = data.get("email_u")
-        self.email_domain = data.get("email_d")
-        self.email = f"{self.email_name}@{self.email_domain}"
-        self.username = data.get("username")
-        self.password = data.get("password").replace(
-            ":", "")  # Fixxes Messed Up OutputFormats
-        self.domain = data.get("domain")
-        self.company = data.get("company")
-        self.pheight = data.get("height")
-        self.pweight = data.get("weight")
-        self.eye = data.get("eye")
-        self.hair = data.get("hair")
-        self.sport = data.get("sport")
 
     async def geolocation(self, country=""):
         url = f"https://api.3geonames.org/randomland.{country}.json"
@@ -184,7 +175,7 @@ class Generator:
         # Initializing the Thread
         self.last_x, self.last_y = 0, 0
         self.proxy, self.mode, self.output_file, self.email_verification, self.humanize, self.output_format = proxy, mode, output_file, email, humanize, output_format
-        self.token, self.email = "", ""
+        self.token, self.email, self.output = "", "", ""
         # SettingUp Logger
         logging.basicConfig(
             format='\033[34m[%(levelname)s] - \033[94mLine %(lineno)s  - \033[36m%(funcName)s() - \033[96m%(message)s\033[0m')
