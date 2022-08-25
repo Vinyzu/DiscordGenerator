@@ -31,8 +31,9 @@ NAMES = [x for x in NAMES if len(x) >= 8]
 
 PASSWORDS = requests.get(
     "https://raw.githubusercontent.com/berzerk0/Probable-Wordlists/master/Real-Passwords/WPA-Length/Top4800-WPA-probable-v2.txt").text.splitlines()
-PASSWORDS = [x + "".join(random.choice(["!", "$", "§", ".", ",", "(", ")", "/", "?", "%", "+", "*", "-", "_"])
-                         for _ in range(random.randint(2, 5))) for x in PASSWORDS if len(x) >= 8]
+PASSWORDS = [x + "".join(random.choice(["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"])
+                         for _ in range(random.randint(1, 3))) + "".join(random.choice(["!", "$", "§", ".", ",", "(", ")", "/", "?", "%", "+", "*", "-", "_"])
+                                                                         for _ in range(random.randint(2, 5))) for x in PASSWORDS if len(x) >= 8]
 
 
 class Faker:
@@ -118,7 +119,7 @@ class Proxy:
         self.httpx_proxy = {"http": self.http_proxy,
                             "https": self.http_proxy} if self.proxy else None
 
-        self.check_proxy()
+        self.check, self.reason = self.check_proxy()
 
     def split_helper(self, splitted):
         if not any([_.isdigit() for _ in splitted]):
@@ -149,7 +150,7 @@ class Proxy:
 
     def check_proxy(self):
         try:
-            ip_request = requests.get('https://ifconfig.me/ip',
+            ip_request = requests.get('https://api.my-ip.io/ip',
                                       proxies=self.httpx_proxy)
             ip = ip_request.text
             r = requests.get(f"http://ip-api.com/json/{ip}")
@@ -164,10 +165,10 @@ class Proxy:
             self.timezone = data.get("timezone")
 
             if not self.country:
-                raise GeneratorExit
+                return False, "Could not get GeoInformation from proxy (Proxy is Invalid/Failed Check)"
+            return True, "placeholder"
         except:
-            raise GeneratorExit(
-                "Could not get GeoInformation from proxy (Proxy is Invalid/Failed Check)")
+            return False, "Could not get GeoInformation from proxy (Proxy is Invalid/Failed Check)"
 
 
 class Generator:
@@ -182,10 +183,9 @@ class Generator:
         self.logger = logging.getLogger('logger')
         self.logger.setLevel(logging.DEBUG)
         # Initializing Faker, ComputerInfo, PersonInfo and ProxyInfo
-        try:
-            self.proxy = Proxy(self.proxy)
-        except Exception as e:
-            self.logger.error(str(e))
+        self.proxy = Proxy(self.proxy)
+        if not self.proxy.check:
+            self.logger.error(f"Proxy Check Failed: {self.proxy.reason}")
             return False
 
         self.faker = Faker(self.proxy.httpx_proxy)
@@ -704,7 +704,7 @@ class Generator:
             # Typing Email, Username, Password
             self.inbox = TempMail.generateInbox(rush=True)
             self.email = self.inbox.address if self.email_verification else str(
-                self.person.username+f"{random.randint(10, 99)}@gmail.com")
+                self.faker.username+f"{random.randint(10, 99)}@gmail.com")
             await self.type_humanly('[name="email"]', self.email)
             await self.type_humanly('[name="username"]', self.faker.username)
             await self.type_humanly('[name="password"]', self.faker.password)

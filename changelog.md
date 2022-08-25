@@ -2,6 +2,15 @@
 
 Every new change will be logged
 
+## v1.0.5
+```
++ Fixxed To Low Password Security
++ Fixxed self.person error
++ Changed IP Provider (Hopefully Fixxes Proxy Errors)
++ Rewrote ProxyCheck Invalid Error
+
+```
+
 ## v1.0.4
 ```
 + Tokens will now be saved even when the gen crashes
