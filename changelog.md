@@ -2,6 +2,17 @@
 
 Every new change will be logged
 
+## v1.0.6
+```
++ Updated AI to support newest Tasks
++ Updated Avatar Function (should work now ig lol)
++ New IP-API (hopefully will fix ProxyIssues)
++ Added ServerJoiner (Wasnt tested enough to say its 100% stable)
+
++ Updated InviteLink in ReadMe
+
+```
+
 ## v1.0.5
 ```
 + Fixxed To Low Password Security

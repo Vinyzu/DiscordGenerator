@@ -99,7 +99,7 @@ Hello, skid. I know its in your nature to laboriously copy and paste this projec
 
 
 
-[![mjolnir-discord](https://img.shields.io/badge/Mjolnir_Discord-000?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/NurPCR25uX)
+[![mjolnir-discord](https://img.shields.io/badge/Mjolnir_Discord-000?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/rpd4gzrqGN)
 [![my-discord](https://img.shields.io/badge/My_Discord-000?style=for-the-badge&logo=google-chat&logoColor=blue)](https://discordapp.com/users/935224495126487150)
 [![buy-me-a-coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-000?style=for-the-badge&logo=ko-fi&logoColor=brown)](https://ko-fi.com/vinyzu)
 
