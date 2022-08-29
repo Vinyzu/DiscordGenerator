@@ -6,6 +6,7 @@ scipy~=1.7.3
 random-user-agent~=1.0.1
 discum~=1.4.1
 tempmail-lol~=1.1.0
+validators
 
 # AI Requirements
 pyyaml~=6.0
