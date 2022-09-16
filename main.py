@@ -17,6 +17,8 @@ import numpy as np
 import scipy.interpolate
 import playwright_stealth
 import requests
+import imaplib
+import email
 from playwright.async_api import async_playwright
 from random_user_agent.user_agent import UserAgent
 from random_user_agent.params import SoftwareName, OperatingSystem
@@ -27,7 +29,7 @@ import validators
 from hcaptcha_challenger import (DIR_CHALLENGE, DIR_MODEL, PATH_OBJECTS_YAML,
                                  ArmorCaptcha)
 from hcaptcha_challenger.solutions.kernel import Solutions
-from tempmail import TempMail
+from mailinfo import MailInfo
 
 
 NAMES = requests.get(
@@ -712,8 +714,7 @@ class Generator:
             self.token = None
             # Typing Email, Username, Password
             self.inbox = TempMail.generateInbox(rush=True)
-            self.email = self.inbox.address if self.email_verification else str(
-                self.faker.username+f"{random.randint(10, 99)}@gmail.com")
+            self.email = self.inbox.address if self.email_verification else str(self.faker.username+f"{random.randint(10, 99)}@gmail.com")
             await self.type_humanly('[name="email"]', self.email)
             await self.type_humanly('[name="username"]', self.faker.username)
             await self.type_humanly('[name="password"]', self.faker.password)
@@ -899,7 +900,7 @@ class Generator:
     async def claim_account(self):
         self.inbox = TempMail.generateInbox(rush=True)
         self.email = self.inbox.address
-
+        print(self.email)
         self.bot._Client__user_password = self.faker.password
         response = self.bot.setEmail(self.email)
         if not response.status_code == 200:
@@ -919,25 +920,39 @@ class Generator:
             return True
 
     async def confirm_email(self):
+        with open("config.json") as conf: config = json.load(conf)
+        IMAPHOST, IMAPPORT = config["EMAIL STUFF"]["IMAP HOST"], config["EMAIL STUFF"]["IMAP PORT"]
+        IMAPUSERNAME, IMAPPASSWORD = config["EMAIL STUFF"]["IMAP USERNAME"], config["EMAIL STUFF"]["IMAP APP PASSWORD"]
         before_token = self.token
         self.logger.info("Confirming Email...")
+        self.VERIFICATIONLINK = None
         # Getting the email confirmation link from the email
-        self.scrape_emails = True
-        while self.scrape_emails:
-            emails = TempMail.getEmails(self.inbox)
-            for mail in emails:
-                if "mail.discord.com" in str(mail.sender):
-                    for word in mail.body.split():
-                        if "https://click.discord.com" in word:
-                            self.email_link = word
-                            self.scrape_emails = False
-                            break
-        self.email_link = self.email_link.replace("[", "").replace("]", "")
-        # Confirming the email by link
-        await self.page.goto(self.email_link)
-        # Collecting all Images requested from hCaptcha (Captcha Images)
-        self.images = []
-
+        try:
+            imap_server = imaplib.IMAP4_SSL(host=IMAPHOST, port=IMAPPORT)
+            imap_server.login(IMAPUSERNAME, IMAPPASSWORD)
+            imap_server.select()
+            while self.VERIFICATIONLINK is None:
+                await asyncio.sleep(2)
+                _, message_number_raw = imap_server.search(None, "ALL")
+                print(message_number_raw)
+                message_number = message_number_raw[-1].split()[-1].decode("utf-8")
+                _, msg = imap_server.fetch(message_number, "(RFC822)")
+                raw_message = msg[0][1].decode("utf-8")
+                email_message = email.message_from_string(raw_message)
+                if email_message["from"] == "Discord <noreply@discord.com>":
+                    for part in email_message.walk():
+                        if part.get_content_type() == "text/plain":
+                            body = part.get_payload(decode=True)
+                            charset = part.get_content_charset("iso-8859-1")
+                            chars = charset.encode(charset, "replace")
+                            urls = re.findall('(?:(?:https?|ftp)://)?[\w/\-?=%.]+\.[\w/\-&?=%.]+', body.decode("latin1"))
+                            if "https://click.discord.com/ls/click".encode() in body:
+                                self.VERIFICATIONLINK = urls[0]
+                                break      
+            await self.page.goto(self.VERIFICATIONLINK)
+            self.images = []
+        except Exception: raise Exception
+        
         async def image_append(route, request):
             if request.resource_type == "image" and "hcaptcha" in request.url:
                 self.images.append(request.url)
@@ -958,7 +973,11 @@ class Generator:
         # Waiting until new token is set
         while self.token == before_token:
             await asyncio.sleep(2)
+            if self.output: 
+                with open(self.output_file, 'a') as file: file.write(f"{self.output}\n")
+        self.logger.info("Email has been succesfully verified!")
         return True
+        
 
     async def join_server(self):
         await self.page.goto("https://discord.com/channels/@me")
