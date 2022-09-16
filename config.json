@@ -1,0 +1,11 @@
+{
+	"EMAIL STUFF": {
+		"REAL EMAIL ADDRESS": "exampleuser@gmail.com",
+		"CUSTOM DOMAINS": ["example.com"],
+		
+		"IMAP HOST": "imap.gmail.com",
+		"IMAP PORT": "993",
+		"IMAP USERNAME": "exampleuser",
+		"IMAP APP PASSWORD": "example-app-password"
+	}
+}
