@@ -4,7 +4,7 @@
     - Using IMAP (free custom domain, not blocked by discord & faster verification)
     - Added external configuration file to setup IMAP
     - Fixed Tokens aren't saved in the file after verìfîcation (wasn't saved before if joining a invite failed)
-  [Note: Some TLDs are blocked by discord (discord won't send a sms to them. I noticed it for .monster but there might be more]
+  [Note: Some TLDs are blocked by discord (discord won't send a email to them. I noticed it for .monster but there might be more]
 
   ## Setup Mail Verification:
     - Create a GMAIL Account which is used to forward all Discord Mails to
