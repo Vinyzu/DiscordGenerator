@@ -713,7 +713,7 @@ class Generator:
             await self.log_token()
             self.token = None
             # Typing Email, Username, Password
-            self.inbox = TempMail.generateInbox(rush=True)
+            self.inbox = MailInfo.generateInbox(rush=True)
             self.email = self.inbox.address if self.email_verification else str(self.faker.username+f"{random.randint(10, 99)}@gmail.com")
             await self.type_humanly('[name="email"]', self.email)
             await self.type_humanly('[name="username"]', self.faker.username)
@@ -898,7 +898,7 @@ class Generator:
         self.logger.info(f"Set Hypesquad, Bio and ProfilePic!")
 
     async def claim_account(self):
-        self.inbox = TempMail.generateInbox(rush=True)
+        self.inbox = MailInfo.generateInbox(rush=True)
         self.email = self.inbox.address
         print(self.email)
         self.bot._Client__user_password = self.faker.password
