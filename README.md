@@ -1,3 +1,26 @@
+# Edited by FuckingToaster's Fork:
+  ## New Features & Improvments
+    - Got rid of Tempmail.lol (their ip for dns record is blocked by discord & more code take longer to execute)
+    - Using IMAP (free custom domain, not blocked by discord & faster verification)
+    - Added external configuration file to setup IMAP
+    - Fixed Tokens aren't saved in the file after verìfîcation (wasn't saved before if joining a invite failed)
+  [Note: Some TLDs are blocked by discord (discord won't send a sms to them. I noticed it for .monster but there might be more]
+
+  ## Setup Mail Verification:
+    - Create a GMAIL Account which is used to forward all Discord Mails to
+    - Setup 2FA on the GMAIL Account you just made
+    - Navigate to this Site: https://mail.google.com/mail/u/2/#settings/fwdandpop and enable the IMAP Option
+    - Add a App Password here: https://myaccount.google.com/u/2/security (Option is only shown if 2FA is enabled) | Set App to Other and choose a random Name)
+    - Add your Details in the config File.
+  
+## Using a Custom Domain:
+    - Follow the Steps above in Setup Mail Verification and then contine with the Info below
+    - Register a Account at https://improvmx.com
+    - Setup the DNS Records the Site provide you with in your Domain's DNS Settings
+    - Add your Domain Forwarding to * (This forward all mails sent to custom domain to the gmail you just made)
+  
+
+# Orginal Readme created by the orginal Author's
 # DISLOCK
 
 # I accidently deleted the v2.0 update files (bout 1 week or 30 workhours), this project is discontinued for a bit, while im working on botright.
