@@ -45,7 +45,7 @@ I would appreciate a star on this project aswell and hope that youll have fun cr
 ### Installing DISLOCK with Python
 
 ```bash
-  git clone https://github.com/Vinyzu/DISLOCK DISLOCK
+  git clone https://github.com/Vinyzu/DiscordGenerator DISLOCK
   cd DISLOCK
   pip install -r requirements.txt
   playwright install

@@ -357,11 +357,11 @@ async def main():
 
     if not validators.url(invite) and invite:
         invite_link = f"https://discord.gg/{invite}"
-        if not validators.url(invite_link) or not httpx.get(f"https://discordapp.com/api/v8/invites/{invite}").ok:
+        if not validators.url(invite_link) or not httpx.get(f"https://discordapp.com/api/v8/invites/{invite}").is_success:
             raise ValueError(f"Invalid InviteLink: {invite}")
     else:
         invite_code = invite.split("/")[-1]
-        if invite and not httpx.get(f"https://discordapp.com/api/v8/invites/{invite_code}").ok:
+        if invite and not httpx.get(f"https://discordapp.com/api/v8/invites/{invite_code}").is_success:
             raise ValueError(f"Invalid InviteLink: {invite}")
         invite_link = invite
 
