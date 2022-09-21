@@ -1,7 +1,10 @@
 # source: https://github.com/tempmail-lol/api-python/tree/main/TempMail
-
-import requests
 import json
+import random
+
+import httpx
+
+DOMAINS = ["gmailb.tk", "gmailb.ml", "gmailb.ga"]
 
 
 class TempMail:
@@ -19,7 +22,7 @@ class TempMail:
             "Accept": "application/json"
         }
         try:
-            connection = requests.get(BASE_URL + endpoint, headers=headers)
+            connection = httpx.get(BASE_URL + endpoint, headers=headers)
             if connection.status_code >= 400:
                 raise Exception("HTTP Error: " + str(connection.status_code))
         except Exception as e:
@@ -37,8 +40,8 @@ class TempMail:
     """
     def generateInbox(rush=False):
         try:
-            s = TempMail.makeHTTPRequest(
-                "/generate" + ("/rush" if rush else ""))
+            random_domain = random.choice(DOMAINS)
+            s = TempMail.makeHTTPRequest(f"/generate/{random_domain}")
         except:
             print("Website responded with: " + s)
         data = json.loads(s)
@@ -67,7 +70,6 @@ class TempMail:
                 emails.append(Email(
                     email["from"], email["to"], email["subject"], email["body"], email["html"], email["date"]))
             return emails
-
 
 class Email:
     def __init__(self, sender, recipient, subject, body, html, date):
@@ -106,7 +108,6 @@ class Email:
     def __repr__(self):
         return ("Email (sender={}, recipient={}, subject={}, body={}, html={}, date={} )"
                 .format(self.sender, self.recipient, self.subject, self.body, self.html, self.date))
-
 
 class Inbox:
     def __init__(self, address, token):

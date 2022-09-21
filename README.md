@@ -1,4 +1,4 @@
-# DISLOCK
+# DISLOCK v2.0
 
 DISLOCK is the most advanced Discord Browser Generator.
 
@@ -29,20 +29,12 @@ If you just want to test the Generator, you can also just restart your InternetR
 
 (Btw your Proxy AD can stand here, DM me for offers ;d ;:D)
 
-## Artificial Intelligence
+## Botright
 
-The AI of this bot is not mine and i dont take any credits for it.
+This bot uses Botright, my Browser Automation Package. You can check it out [here](https://github.com/Vinyzu/Botright).
 
-It was created by QIN2DIM and can be found [here](https://github.com/QIN2DIM/hcaptcha-challenger).
-If you want to update the AI because im late, you will have to grab the files from given repository.
+I would appreciate a star on this project aswell and hope that youll have fun creating your own bots with it!
 
-`You maight want to regulary update objects.yaml by copy and pasting https://github.com/QIN2DIM/hcaptcha-challenger/blob/main/src/objects.yaml`
-
-However, i edited out some code/files, to make DISLOCK lightweighter and to use less imports.
-
-Also, i coded a MouseMovement Generator, to get more realistic MotionData. It uses Interpolation between CaptchaImage-Coordinates to do so.
-
-My Playwright hCaptchaSolver can be easily plugged by replicating [check_captcha()](https://github.com/Vinyzu/DiscordGenerator/blob/main/main.py#L491) in your project.
 
 ## Installation
 

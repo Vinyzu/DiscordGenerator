@@ -1,13 +1,3 @@
+botright~=1.0
 httpx~=0.23.0
-playwright~=1.22.0
-playwright-stealth~=1.0.5
-numpy>=1.22
-scipy~=1.7.3
-random-user-agent~=1.0.1
-discum~=1.4.1
-tempmail-lol~=1.1.0
-
-# AI Requirements
-pyyaml~=6.0
-scikit-image~=0.19.2
-opencv-python~=4.5.5.62
+validators~=0.20.0

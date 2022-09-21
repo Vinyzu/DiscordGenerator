@@ -2,6 +2,13 @@
 
 Every new change will be logged
 
+## v2.0
+```
++ Using Botright now
++ Updated Joiner and Humanization to be undetected
++ More small changes
+```
+
 ## v1.0.6
 ```
 + Updated AI to support newest Tasks
