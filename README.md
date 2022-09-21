@@ -1,9 +1,5 @@
 # DISLOCK v2.0
 
-# I accidently deleted the v2.0 update files (bout 1 week or 30 workhours), this project is discontinued for a bit, while im working on botright.
-
-# I decided to do that because i can easily build this on botright when its finished.
-
 DISLOCK is the most advanced Discord Browser Generator.
 
 It is capable of generating Unlocked Tokens for free by Using AI.
