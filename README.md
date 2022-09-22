@@ -1,4 +1,4 @@
-# DISLOCK v2.0
+# DISLOCK v2.1
 
 DISLOCK is the most advanced Discord Browser Generator.
 

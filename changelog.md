@@ -2,6 +2,14 @@
 
 Every new change will be logged
 
+## v2.1
+```
++ Changed Checkbox Locator
++ Uodated LockCheck to work now
++ More LockChecking in EmailVerifier
++ More Sleeping whilst verifying Mail
+```
+
 ## v2.0
 ```
 + Using Botright now

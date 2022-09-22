@@ -99,7 +99,7 @@ class Generator:
             await self.page.type('[class *= "username"]', self.browser.faker.username)
             # Clicking Tos and Submit Button
             try:
-                await self.page.click("[class *='termsCheckbox']", timeout=10000)
+                await self.page.click("[class *= 'checkbox']", timeout=10000)
             except Exception as e:
                 self.logger.debug("No TOS Checkbox was detected")
                 pass

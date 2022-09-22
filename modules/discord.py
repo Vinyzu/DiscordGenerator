@@ -148,7 +148,7 @@ class Discord:
 
         is_locked = await Discord.is_locked(self)
         if is_locked:
-            self.logger.error(f"Token {self.token} got locked whilst humanizing!")
+            self.logger.error(f"Token {self.token} got locked whilst joining a Server!")
             await self.close()
             return
 
@@ -167,6 +167,8 @@ class Discord:
             self.discriminator = response.get("discriminator")
             self.tag = f"{self.username}#{self.discriminator}"
             self.flags = response.get("public_flags")
+
+        return not token_check
 
     async def set_email(self, email):
         # Setting Email
@@ -205,6 +207,10 @@ class Discord:
                             self.scrape_emails = False
                             break
         self.email_link = self.email_link.replace("[", "").replace("]", "")
+
+        self.logger.info("Waiting 10 seconds for a more realistic email-verify")
+        await self.page.wait_for_timeout(random.randint(10000, 12000))
+
         # Confirming the email by link
         await self.page.goto(self.email_link)
 
@@ -216,6 +222,12 @@ class Discord:
         # Waiting until new token is set
         while self.token == before_token:
             await self.page.wait_for_timeout(1000)
+
+        is_locked = await Discord.is_locked(self)
+        if is_locked:
+            self.logger.error(f"Token {self.token} got locked whilst verifying the Email!")
+            await self.close()
+            return
 
         self.log_output()
         return True
