@@ -47,10 +47,10 @@ class Discord:
     async def humanize_token(self):
         await self.page.goto("https://discord.com/channels/@me")
         await self.page.wait_for_timeout(1000)
-        # Clicking Join Server Button
+        # Clicking Settings Button
         settings_button = self.page.locator('[class *= "button-12Fmur"]').last
         await settings_button.click()
-        # Click Join another Server Button
+        # Click Profile Button
         await self.page.wait_for_timeout(500)
         profile_button = self.page.locator('[class *= "item-3XjbnG"]').nth(6)
         await profile_button.click()
@@ -171,26 +171,31 @@ class Discord:
         return not token_check
 
     async def set_email(self, email):
-        # Setting Email
-        payload = {"email": email, "password": self.browser.faker.password}
-        headers = await Discord.get_headers(self, payload)
-        response = await self.page.request.patch("https://discord.com/api/v9/users/@me", data=payload, headers=headers)
+        try:
+            # Setting Email
+            await self.page.goto("https://discord.com/channels/@me")
+            await self.page.wait_for_timeout(1000)
+            # Clicking Settings Button
+            settings_button = self.page.locator('[class *= "button-12Fmur"]').last
+            await settings_button.click()
+            # Click Email Button
+            await self.page.wait_for_timeout(500)
+            settings_button = self.page.locator('[class *= "fieldButton-14lHvK"]').nth(1)
+            await settings_button.click()
 
-        if not response.status == 200:
-            try:
-                json = await response.json()
-                self.logger.error(f"Couldnt set email! Response: {json}")
-            except:
-                self.logger.error(f"Couldnt set email!")
-            return False
-        else:
-            self.logger.info("Successfully set email! Verifying...")
-            try:
-                json = await response.json()
-                if json.get("token"):
-                    self.token = json.get("token")
-            except:
-                pass
+            # Typing Mail
+            mail_input = self.page.locator('[type="text"]').last
+            await mail_input.type(email)
+
+            # Typing Password
+            password_input = self.page.locator('[type="password"]').last
+            await password_input.type(self.browser.faker.password)
+
+            # Click Claim Button
+            claim_button = self.page.locator('[type="submit"]').last
+            await claim_button.click()
+        except Exception as e:
+            print(e)
 
     async def confirm_email(self):
         before_token = self.token

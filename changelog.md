@@ -2,6 +2,12 @@
 
 Every new change will be logged
 
+## v2.2
+```
++ Fixxed Bug causing /register Gen not clicking Tos-Checkbox
++ Updated Email Claiming to be manual (not request)
+```
+
 ## v2.1
 ```
 + Changed Checkbox Locator

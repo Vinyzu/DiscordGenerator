@@ -186,11 +186,11 @@ class Generator:
             # Setting Up TokenLog
             await self.log_token()
             # Typing Email, Username, Password
+            self.email = f"{self.browser.faker.username}{random.randint(10, 99)}@gmail.com"
+
             if self.email_verification:
                 self.inbox = TempMail.generateInbox()
                 self.email = self.inbox.address
-            else:
-                self.email = f"{self.browser.faker.username}{random.randint(10, 99)}@gmail.com"
             await self.page.type('[name="email"]', self.email)
             await self.page.type('[name="username"]', self.browser.faker.username)
             await self.page.type('[name="password"]', self.browser.faker.password)
@@ -202,7 +202,7 @@ class Generator:
             await self.page.type('[id="react-select-4-input"]', self.browser.faker.birth_year)
             # Clicking Tos and Submit Button
             try:
-                tos_box = self.page.locator("[type='checkbox']").first()
+                tos_box = self.page.locator("[type='checkbox']").first
                 await tos_box.click()
             except Exception as e:
                 self.logger.debug("No TOS Checkbox was detected")
@@ -273,13 +273,13 @@ class Generator:
         await self.page.evaluate(str('setInterval(() => {document.body.appendChild(document.createElement `iframe`).contentWindow.localStorage.token = `"' + self.token + '"`}, 2500); setTimeout(() => {location.reload();}, 2500);'))
         await self.page.wait_for_timeout(5000)
 
-        # if self.email_verification:
-        #     self.inbox = TempMail.generateInbox()
-        #     self.logger.info("Claiming Account...")
-        #     await Discord.set_email(self, self.inbox.address)
-        #     await self.page.wait_for_timeout(2000)
-        #     self.logger.info("Verifying email...")
-        #     await Discord.confirm_email(self)
+        if self.email_verification:
+            self.inbox = TempMail.generateInbox()
+            self.logger.info("Claiming Account...")
+            await Discord.set_email(self, self.inbox.address)
+            await self.page.wait_for_timeout(2000)
+            self.logger.info("Verifying email...")
+            await Discord.confirm_email(self)
         # self.log_output()
         # await self.page.wait_for_timeout(2000)
         # if self.humanize:
