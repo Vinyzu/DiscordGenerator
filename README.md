@@ -1,4 +1,4 @@
-# DISLOCK v2.1
+# DISLOCK v2.3
 
 DISLOCK is the most advanced Discord Browser Generator.
 
@@ -105,7 +105,7 @@ Hello, skid. I know its in your nature to laboriously copy and paste this projec
 [Dönerbäcker](https://github.com/DoenerBaecker) (For Proxies)
 
 
-![Version](https://img.shields.io/badge/DISÖOCK-v1.0.0-blue)
+![Version](https://img.shields.io/badge/DISLOCK-v2.3-blue)
 ![License](https://img.shields.io/badge/License-GNU%20GPL-green)
 ![Python](https://img.shields.io/badge/Python-v3.x-lightgrey)
 ![Platforms](https://img.shields.io/badge/Platform-win--32%20%7C%20win--64-lightgrey)

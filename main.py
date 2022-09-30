@@ -137,6 +137,13 @@ class Generator:
             except:
                 pass
 
+            # Closing PopUps
+            for _ in range(2):
+                try:
+                    await self.page.click("[class *= 'closeButton']", timeout=5000)
+                except:
+                    pass
+
             if self.email_verification:
                 self.inbox = TempMail.generateInbox()
                 self.logger.info("Claiming Account...")
@@ -229,6 +236,13 @@ class Generator:
             self.log_output()
 
             await self.page.wait_for_timeout(2000)
+
+            # Closing PopUps
+            for _ in range(2):
+                try:
+                    await self.page.click("[class *= 'closeButton']", timeout=5000)
+                except:
+                    pass
 
             if self.email_verification:
                 self.logger.info("Verifying email...")
@@ -384,7 +398,10 @@ async def main():
                 threadz.append(Generator().initialize(botright_client, proxy, mode, output_file, email, humanize, output_format, invite_link))
 
             await asyncio.gather(*threadz)
-    except:
+    except KeyboardInterrupt:
+        await botright_client.close()
+    except Exception:
+        print(traceback.format_exc())
         await botright_client.close()
 
 

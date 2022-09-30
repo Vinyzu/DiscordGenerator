@@ -2,6 +2,12 @@
 
 Every new change will be logged
 
+## v2.3
+```
++ Closing PopUps after Generation
++ Better ErrorHandling
+```
+
 ## v2.2
 ```
 + Fixxed Bug causing /register Gen not clicking Tos-Checkbox
