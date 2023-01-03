@@ -1,4 +1,5 @@
-# DISLOCK v2.3
+# DISLOCK v2.3 
+## TEMPORARY INACTIV and NOT WORKING
 
 DISLOCK is the most advanced Discord Browser Generator.
 
