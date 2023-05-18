@@ -25,7 +25,7 @@ class Discord:
         super_props = {"os": platform.system(), "browser":"Firefox", "release_channel":"stable", "client_version": self.browser.browser.version, "os_version": str(platform.version()), "os_arch": "x64" if platform.machine().endswith('64') else "x86", "system_locale": self.browser.faker.locale, "client_build_number": DISCORD_BUILD_NUM, "client_event_source": None}
         super_props = base64.b64encode(str(super_props).encode()).decode()
 
-        headers = {
+        return {
             "accept": "*/*",
             "accept-encoding": "gzip, deflate, br",
             "accept-language": "de,de-DE;q=0.9",
@@ -42,7 +42,6 @@ class Discord:
             "x-discord-locale": "en",
             "x-super-properties": super_props,
         }
-        return headers
 
     async def humanize_token(self):
         await self.page.goto("https://discord.com/channels/@me")
@@ -122,7 +121,7 @@ class Discord:
             return
 
         self.log_output()
-        self.logger.info(f"Set Bio and ProfilePic!")
+        self.logger.info("Set Bio and ProfilePic!")
 
     async def join_server(self):
         await self.page.goto("https://discord.com/channels/@me")
