@@ -16,34 +16,32 @@ class TempMail:
     The content of the request is a json string and is returned as a string object
     """
 
-    def makeHTTPRequest(endpoint):
+    def makeHTTPRequest(self):
         headers = {
             "User-Agent": "TempMailPythonAPI/1.0",
             "Accept": "application/json"
         }
         try:
-            connection = httpx.get(BASE_URL + endpoint, headers=headers)
+            connection = httpx.get(BASE_URL + self, headers=headers)
             if connection.status_code >= 400:
-                raise Exception("HTTP Error: " + str(connection.status_code))
+                raise Exception(f"HTTP Error: {str(connection.status_code)}")
         except Exception as e:
             print(e)
             return None
 
-        response = connection.text
-
-        return response
+        return connection.text
 
     """
     GenerateInbox will generate an inbox with an address and a token
     and returns an Inbox object
     > rush = False will generate a normal inbox with no rush (https://tempmail.lol/news/2022/08/03/introducing-rush-mode-for-tempmail/)
     """
-    def generateInbox(rush=False):
+    def generateInbox(self):
         try:
             random_domain = random.choice(DOMAINS)
             s = TempMail.makeHTTPRequest(f"/generate/{random_domain}")
         except:
-            print("Website responded with: " + s)
+            print(f"Website responded with: {s}")
         data = json.loads(s)
         return Inbox(data["address"], data["token"])
 
@@ -51,8 +49,8 @@ class TempMail:
     getEmail gets the emails from an inbox object
     and returns a list of Email objects
     """
-    def getEmails(inbox):
-        s = TempMail.makeHTTPRequest("/auth/" + inbox.token)
+    def getEmails(self):
+        s = TempMail.makeHTTPRequest(f"/auth/{self.token}")
         data = json.loads(s)
 
         # Raise an exception if the token is invalid
@@ -62,14 +60,20 @@ class TempMail:
 
         # if no emails are found, return an empty list
         # else return a list of email
-        if data["email"] == None:
+        if data["email"] is None:
             return ["None"]
         else:
-            emails = []
-            for email in data["email"]:
-                emails.append(Email(
-                    email["from"], email["to"], email["subject"], email["body"], email["html"], email["date"]))
-            return emails
+            return [
+                Email(
+                    email["from"],
+                    email["to"],
+                    email["subject"],
+                    email["body"],
+                    email["html"],
+                    email["date"],
+                )
+                for email in data["email"]
+            ]
 
 class Email:
     def __init__(self, sender, recipient, subject, body, html, date):
@@ -106,8 +110,7 @@ class Email:
         return self._date
 
     def __repr__(self):
-        return ("Email (sender={}, recipient={}, subject={}, body={}, html={}, date={} )"
-                .format(self.sender, self.recipient, self.subject, self.body, self.html, self.date))
+        return f"Email (sender={self.sender}, recipient={self.recipient}, subject={self.subject}, body={self.body}, html={self.html}, date={self.date} )"
 
 class Inbox:
     def __init__(self, address, token):
@@ -124,5 +127,4 @@ class Inbox:
         return self._token
 
     def __repr__(self):
-        return ("Inbox (address={}, token={} )"
-                .format(self.address, self.token))
+        return f"Inbox (address={self.address}, token={self.token} )"

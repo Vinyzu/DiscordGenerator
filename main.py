@@ -59,13 +59,13 @@ class Generator:
         output = ""
         for item in self.output_format.split(":"):
             if "token" in item and self.token:
-                output += self.token + ":"
+                output += f"{self.token}:"
             if "email" in item and self.email:
-                output += self.email + ":"
+                output += f"{self.email}:"
             if "pass" in item:
-                output += self.browser.faker.password + ":"
+                output += f"{self.browser.faker.password}:"
             if "proxy" in item and self.browser.proxy:
-                output += self.browser.proxy + ":"
+                output += f"{self.browser.proxy}:"
 
         # Remove last :
         output = output[:-1]
@@ -102,7 +102,6 @@ class Generator:
                 await self.page.click("[class *= 'checkbox']", timeout=10000)
             except Exception as e:
                 self.logger.debug("No TOS Checkbox was detected")
-                pass
             await self.page.click('[class *= "gtm-click-class-register-button"]')
 
             # Solving Captcha
@@ -174,7 +173,6 @@ class Generator:
 
             await self.close()
 
-        # Catch Exceptions and save output anyways
         except:
             self.logger.error(f"Catched Exception, trying to save Token anyways... \n Error: \n {traceback.format_exc()}")
             if self.output:
@@ -213,7 +211,6 @@ class Generator:
                 await tos_box.click()
             except Exception as e:
                 self.logger.debug("No TOS Checkbox was detected")
-                pass
             await self.page.click('[type="submit"]')
 
             await self.page.solve_hcaptcha()
@@ -269,7 +266,6 @@ class Generator:
 
             await self.close()
 
-        # Catch Exceptions and save output anyways
         except:
             self.logger.error(f"Catched Exception, trying to save Token anyways... \n Error: \n{traceback.format_exc()}")
             if self.output:
@@ -329,7 +325,7 @@ async def main():
         if email not in ("1", "2"):
             raise ValueError("Invalid Mode provided")
         else:
-            email = True if email == "1" else False
+            email = email == "1"
     else:
         email = False
 
@@ -339,7 +335,7 @@ async def main():
         if humanize not in ("1", "2"):
             raise ValueError("Invalid Mode provided")
         else:
-            humanize = True if humanize == "1" else False
+            humanize = humanize == "1"
     else:
         humanize = False
 
@@ -349,9 +345,11 @@ async def main():
     except:
         raise ValueError("Invalid ThreadAmount provided")
 
-    proxy_file = input("[Drag&Drop] - [Proxy File]\n" +
-                       "<?> Or Leave empty for Proxyless Mode\n" + "</> ").replace('"', "")
-    if proxy_file:
+    if proxy_file := input(
+        "[Drag&Drop] - [Proxy File]\n"
+        + "<?> Or Leave empty for Proxyless Mode\n"
+        + "</> "
+    ).replace('"', ""):
         if not os.path.isfile(proxy_file):
             raise ValueError("Provided ProxyPath isnt a file!")
         proxies = open(proxy_file, 'r').readlines()
